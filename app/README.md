@@ -1,5 +1,9 @@
 # 폴더와 모드별 코드 배치
 
+## 앱 진입점
+
+[server.py](server.py)가 FastAPI 앱을 만들고 정적 파일·API 라우터·오류 처리를 등록합니다. 서버 시작 시 모델 설정과 로컬 자원을 점검합니다. 각 기능의 세부 책임은 아래 폴더 안내에서 확인할 수 있습니다.
+
 ## 분리 원칙
 
 각 기능 폴더 바로 아래에는 Baseline과 A2UI가 함께 사용하는 코드를 두고, A2UI 모드 전용 코드는 해당 폴더의 `a2ui/` 하위에 둔다. Baseline 전용 실행 응답은 `execution/baseline/`에 둔다. API의 A2UI 모드 값은 `agent2ui`이다.
@@ -118,3 +122,24 @@ app/
 - 파일 이동 시 `pyproject.toml`의 정적 파일 포함 경로와 HTML·JavaScript import를 함께 갱신한다.
 
 현재 공개 테스트는 `tests/execution/`에 있다. 프론트엔드 자동 테스트는 포함되어 있지 않다.
+
+## 하위 폴더 안내
+
+| 폴더 | 역할 |
+|---|---|
+| [a2ui/](a2ui/README.md) | 서버의 화면 전송 모델 |
+| [chat/](chat/README.md) | 대화 요청 분류와 문맥 |
+| [core/](core/README.md) | 모델 연결 설정과 시작 점검 |
+| [data/](data/README.md) | 조회 데이터베이스 경로 |
+| [eval/](eval/README.md) | Text-to-SQL 정확도·안정성 평가 |
+| [execution/](execution/README.md) | SQL 생성·검증·실행 |
+| [experiment/](experiment/README.md) | 사용자 실험 진행과 상호작용 기록 |
+| [planning/](planning/README.md) | 분석 계획과 편집 UI 정의 |
+| [routes/](routes/README.md) | HTTP 요청과 응답 |
+| [runtime/](runtime/README.md) | 대화 상태와 취소 가능한 실행 |
+| [static/](static/README.md) | 프론트엔드 정적 리소스 |
+| [templates/](templates/README.md) | 웹 앱 HTML 셸 |
+
+## 함께 읽기
+
+- [프로젝트 소개](../README.md)

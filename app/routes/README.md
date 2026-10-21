@@ -156,3 +156,14 @@ CSV 내보내기의 `researcher_key`는 `ORDER_UI_RESEARCHER_KEY`와 비교한�
 `tests/test_baseline_turn_routing.py`와 `tests/a2ui/test_agent2ui_turn_routing.py`는 모드별 질문 처리 경로를 확인한다. `tests/a2ui/test_route_workflows.py`는 통합 라우터에서 계획 수정·오래된 화면 거절·확정 결과 저장·실험 진행·내보내기 권한·취소 응답을 확인한다. 이 테스트들은 LLM의 실제 응답 품질을 평가하는 테스트와는 구분된다.
 
 전체 백엔드의 공통 코드와 모드별 코드 위치는 [백엔드 구조 설명](../README.md)을 참고한다.
+
+## 하위 폴더 안내
+
+| 폴더 | 역할 |
+|---|---|
+| [a2ui/](a2ui/README.md) | 계획 수정·확정 HTTP API |
+
+## 함께 읽기
+
+- [앱 전체 구조](../README.md)
+- [프로젝트 소개](../../README.md)

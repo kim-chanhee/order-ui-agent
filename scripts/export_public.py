@@ -10,6 +10,7 @@ FILES = (
     "docs/images/prompt-result.png", "docs/images/follow-up-result.png",
     "docs/images/agent2ui-plan.png", "docs/images/interaction-flow.png",
     "docs/images/evaluation-process.png",
+    "docs/images/system-architecture.png", "docs/images/plan-to-ui-example.png",
     "Data/docs/schema_summary.md", "Data/docs/analysis_semantics.json",
     "Data/docs/value_aliases.json", "Data/migrations/001_analysis_views.sql",
 )

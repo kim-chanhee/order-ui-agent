@@ -2,6 +2,18 @@
 
 프롬프트 질문의 내부 분석 계획을 생성하고 바로 실행해 응답을 구성합니다.
 
+## 한눈에 보는 흐름
+
+```mermaid
+flowchart TD
+    A["프롬프트 질문"] --> B["공통 분석 계획 생성"]
+    B --> C["실행 문맥 구성"]
+    C --> D["공통 SQL 실행기"]
+    D --> E["즉시 실행 결과 반환"]
+    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
+    class A focus
+```
+
 ## 주요 파일
 
 | 파일 | 역할 |

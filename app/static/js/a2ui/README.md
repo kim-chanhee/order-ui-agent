@@ -2,6 +2,24 @@
 
 계획 화면의 설치·표시·추가 조건·확정 요청과 편집 상태를 관리합니다.
 
+## 한눈에 보는 흐름
+
+```mermaid
+flowchart TD
+    A["계획 응답"] --> B["surfaces · 편집 상태 설치"]
+    B --> C["review-controller · 계획 표시"]
+    C --> D{"사용자 동작"}
+    D -->|추가 조건| E["refine API와 화면 갱신"]
+    E --> B
+    D -->|확정| F["confirm API와 결과 표시"]
+    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
+    class A focus
+```
+
+![Agent2UI 계획 검토 화면](../../../../docs/images/agent2ui-plan.png)
+
+조회 기간·결과 방식·집계 기준을 표시하는 기존 시스템 화면 일부입니다.
+
 ## 주요 파일
 
 | 파일 | 역할 |

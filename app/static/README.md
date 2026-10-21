@@ -2,6 +2,27 @@
 
 `app.js`에는 사용자 모드, 채팅 전송, 결과 표시만 두고, A2UI 계획 검토 본문은 전용 모듈로 위임한다. HTTP 주소와 요청 필드는 유지한다.
 
+## 한눈에 보는 흐름
+
+```mermaid
+flowchart TD
+    A["index.html"] --> B["app.js · 화면 제어"]
+    B --> C["채팅 API"]
+    C --> D{"응답 화면"}
+    D --> E["계획 · 검토와 편집"]
+    D --> F["결과 · 설명과 표와 차트"]
+    G["공통 CSS와 계획 CSS"] -.-> E
+    G -.-> F
+    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
+    class A focus
+```
+
+| 프롬프트 · 조회 결과 | Agent2UI · 계획 검토 |
+|---|---|
+| <img src="../../docs/images/prompt-result.png" alt="프롬프트 모드의 질문과 결과" width="360"> | <img src="../../docs/images/agent2ui-plan.png" alt="Agent2UI 계획 검토 입력" width="360"> |
+
+기존 주문 DB를 이용한 시스템 화면입니다. 왼쪽은 즉시 조회 결과, 오른쪽은 검토 계획의 일부를 보여줍니다.
+
 | 위치 | 역할 |
 |---|---|
 | `js/app.js` | 공통 진입점, 모드 선택, 채팅과 결과 표시 |

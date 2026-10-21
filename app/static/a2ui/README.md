@@ -2,6 +2,17 @@
 
 Agent2UI 계획 카드, 편집 입력, 확정 상태와 후속 동작에 쓰는 CSS를 관리합니다.
 
+## 한눈에 보는 흐름
+
+```mermaid
+flowchart TD
+    A["index.html"] --> B["공통 styles.css"]
+    B --> C["계획 전용 review.css"]
+    C --> D["계획 카드 · 입력 · 확정 상태"]
+    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
+    class A focus
+```
+
 ## 주요 파일
 
 | 파일 | 역할 |

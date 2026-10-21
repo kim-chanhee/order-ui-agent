@@ -2,6 +2,20 @@
 
 환경 변수에서 LLM 연결 설정을 읽고 앱 기동에 필요한 DB·상태 저장소·실험 설정을 점검합니다.
 
+## 한눈에 보는 흐름
+
+```mermaid
+flowchart TD
+    A["환경 변수"] --> B["llm_settings.py · 모델 설정"]
+    C["조회 DB · 상태 DB · 과제 설정"] --> D["startup_checks.py"]
+    B --> D
+    D --> E{"준비 상태"}
+    E -->|성공| F["서버 시작"]
+    E -->|실패| G["시작 중단과 오류 안내"]
+    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
+    class A focus
+```
+
 ## 주요 파일
 
 | 파일 | 역할 |

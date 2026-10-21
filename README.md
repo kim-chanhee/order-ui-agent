@@ -24,9 +24,11 @@ Agent2UI는 기간·필터·지표·집계 기준을 편집 가능한 UI로 먼�
 
 **두 모드는 같은 계획 생성기·SQL 실행 계층·결과 렌더러를 공유합니다.** 이 프로젝트의 핵심 설계는 실행 전 계획 검토, 사용자 수정 내용의 실행 반영, 계획과 SQL의 일치 검증입니다.
 
-![조회 기간·결과 방식·집계 기준을 검토하는 Agent2UI 화면](docs/images/agent2ui-plan.png)
+| 프롬프트 모드 · 바로 조회 | Agent2UI 모드 · 계획 검토 |
+|---|---|
+| <img src="docs/images/prompt-result.png" alt="프롬프트 모드의 질문과 조회 결과" width="390"> | <img src="docs/images/agent2ui-plan.png" alt="Agent2UI의 기간과 집계 기준 편집 화면" width="390"> |
 
-기존 주문 DB를 사용한 계획 화면 일부입니다. [질문·결과·후속 질문 화면 전체 보기](docs/system-guide.md#사용-화면)
+기존 주문 DB로 시연한 화면입니다. 오른쪽은 계획 화면 일부이며, 상세 기능과 전체 화면은 [화면 갤러리](docs/system-guide.md#사용-화면)에서 볼 수 있습니다.
 
 ## 데이터 출처와 실행 준비
 

@@ -1,5 +1,25 @@
 # 폴더와 모드별 코드 배치
 
+## 한눈에 보는 흐름
+
+```mermaid
+flowchart TD
+    A["웹 화면"] --> B["routes · HTTP API"]
+    B --> C["chat · 요청 분류"]
+    C --> D["planning · 분석 계획"]
+    D --> E{"입력 방식"}
+    E -->|Baseline| F["execution · SQL 검증과 실행"]
+    E -->|Agent2UI| G["계획 UI · 사용자 수정과 확정"]
+    G --> F
+    F --> H["설명 · 표 · 차트"]
+    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
+    class A focus
+```
+
+![시스템 전체 구조](../docs/images/system-architecture.png)
+
+자연어 입력에서 두 모드의 처리, SQL 검증·실행과 결과까지의 전체 구성입니다. 그림의 Baseline 직접 생성은 사용자 검토 단계 생략을 요약한 것으로, 현재 코드에서는 내부 계획을 공유합니다.
+
 ## 앱 진입점
 
 [server.py](server.py)가 FastAPI 앱을 만들고 정적 파일·API 라우터·오류 처리를 등록합니다. 서버 시작 시 모델 설정과 로컬 자원을 점검합니다. 각 기능의 세부 책임은 아래 폴더 안내에서 확인할 수 있습니다.

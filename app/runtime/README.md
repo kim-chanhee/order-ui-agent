@@ -2,6 +2,19 @@
 
 대화 결과·문맥·검토 화면 상태를 보관하고 별도 워커의 취소·시간 제한을 관리합니다.
 
+## 한눈에 보는 흐름
+
+```mermaid
+flowchart TD
+    A["일반 채팅 또는 확정 요청"] --> B["run_manager · 워커 실행"]
+    B --> C["결과 또는 실패 반환"]
+    D["취소 또는 시간 제한"] --> B
+    C --> E["state_store · 결과와 문맥 저장"]
+    F["계획 화면"] --> G["a2ui/surfaces · 화면 버전 저장"]
+    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
+    class A focus
+```
+
 ## 주요 파일
 
 | 파일 | 역할 |

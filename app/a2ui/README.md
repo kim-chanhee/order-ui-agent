@@ -2,6 +2,24 @@
 
 분석 계획과 조회 결과를 브라우저가 렌더링할 화면 데이터로 변환합니다. 컴포넌트 종류·동작·클라이언트 지원 기능을 정의합니다.
 
+## 한눈에 보는 흐름
+
+```mermaid
+flowchart TD
+    A["분석 계획"] --> B["review.py · 계획 화면"]
+    C["조회 결과"] --> D["adapter.py · 결과 화면"]
+    B --> E["models.py · Surface"]
+    D --> E
+    F["catalog.py · 지원 요소"] -.-> E
+    E --> G["브라우저 렌더러"]
+    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
+    class A focus
+```
+
+![계획 데이터가 UI로 연결되는 예시](../../docs/images/plan-to-ui-example.png)
+
+서버가 만든 분석 계획과 입력 요소 정의가 화면으로 연결되는 발표 예시입니다. JSON은 설명을 위해 축약한 형식입니다.
+
 ## 주요 파일
 
 | 파일 | 역할 |

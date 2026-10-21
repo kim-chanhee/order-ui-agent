@@ -2,6 +2,24 @@
 
 질문·DB 스키마·이전 분석을 기간·대상·지표·필터·집계 기준으로 구조화하고 검토용 UI 정의를 만듭니다.
 
+## 한눈에 보는 흐름
+
+```mermaid
+flowchart TD
+    A["질문과 이전 분석"] --> B["스키마와 관계 수집"]
+    B --> C["planner · LLM 계획 생성"]
+    C --> D["AnalysisPlan · 분석 의미"]
+    C --> E["UiBlock · 입력 요소"]
+    D --> F["UiPlan · 검토 계획"]
+    E --> F
+    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
+    class A focus
+```
+
+![분석 계획과 UI 생성 예시](../../docs/images/plan-to-ui-example.png)
+
+기간·지표·집계 기준을 계획으로 구조화하고 검토 입력으로 연결하는 모습을 보여줍니다.
+
 ## 주요 파일
 
 | 파일 | 역할 |

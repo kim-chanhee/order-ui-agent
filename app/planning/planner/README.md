@@ -2,6 +2,20 @@
 
 질문을 구조화된 분석 계획과 UI 블록으로 바꾸는 모델 호출·응답 복구·문맥 상속·의미 보정을 담당합니다.
 
+## 한눈에 보는 흐름
+
+```mermaid
+flowchart TD
+    A["질문 · 스키마 · 이전 분석 후보"] --> B["prompt · 모델 입력"]
+    B --> C["dynamic_planner · 모델 호출"]
+    C --> D["response · 응답 복구"]
+    D --> E["context · 문맥 상속"]
+    E --> F["controls와 semantics · UI와 의미 보정"]
+    F --> G["구조화된 계획 또는 조건 확인 계획"]
+    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
+    class A focus
+```
+
 ## 주요 파일
 
 | 파일 | 역할 |

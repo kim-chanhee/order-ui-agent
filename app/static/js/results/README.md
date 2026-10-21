@@ -2,6 +2,24 @@
 
 두 모드의 분석 결과를 공통 데이터 형태로 정리하고 설명·표·막대 차트로 렌더링합니다.
 
+## 한눈에 보는 흐름
+
+```mermaid
+flowchart TD
+    A["서버 실행 결과"] --> B["result-normalizer"]
+    B --> C["공통 결과 데이터"]
+    C --> D["설명과 실행 정보"]
+    C --> E["결과 표"]
+    C --> F["막대 차트"]
+    C --> G["Agent2UI 후속 질문 버튼"]
+    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
+    class A focus
+```
+
+![조회 결과 표와 후속 질문 화면](../../../../docs/images/follow-up-result.png)
+
+기존 주문 DB를 이용한 결과 화면입니다. 합성 데모 데이터와 조회 숫자는 다릅니다.
+
 ## 주요 파일
 
 | 파일 | 역할 |

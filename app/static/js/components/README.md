@@ -2,18 +2,6 @@
 
 서버가 보낸 컴포넌트 종류를 브라우저 렌더링 함수에 연결하고 텍스트·안내·미지원 요소를 표시합니다.
 
-## 한눈에 보는 흐름
-
-```mermaid
-flowchart TD
-    A["컴포넌트 종류 등록"] --> B["registry"]
-    C["Surface의 컴포넌트 정의"] --> B
-    B --> D["등록된 렌더러 호출"]
-    D --> E["텍스트 · 입력 · 결과 DOM"]
-    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
-    class A focus
-```
-
 ## 주요 파일
 
 | 파일 | 역할 |

@@ -2,20 +2,6 @@
 
 자연어 한 턴을 분석·확인 질문·일반 대화·기존 결과 설명으로 분류하고 모드에 맞는 서비스로 전달합니다.
 
-## 한눈에 보는 흐름
-
-```mermaid
-flowchart TD
-    A["service.py · 질문 접수"] --> B["turn_router.py · 요청 판단"]
-    C["이전 대화와 결과"] --> B
-    B --> D{"요청 경로"}
-    D -->|새 분석| E["Baseline 실행 또는 Agent2UI 검토"]
-    D -->|요약과 설명| F["저장된 결과로 응답"]
-    D -->|확인 필요| G["확인 질문"]
-    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
-    class A focus
-```
-
 ## 주요 파일
 
 | 파일 | 역할 |

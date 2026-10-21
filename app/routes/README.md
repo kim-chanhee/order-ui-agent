@@ -4,22 +4,6 @@
 
 사용자 화면에서 부르는 A2UI 모드의 API 필드 값은 `agent2ui`이다. 코드와 요청 예시에서는 이 값을 사용한다.
 
-## 한눈에 보는 흐름
-
-```mermaid
-flowchart TD
-    A["브라우저 HTTP 요청"] --> B["요청 모델 검증"]
-    B --> C{"API 종류"}
-    C --> D["chat · 질문과 취소"]
-    C --> E["a2ui · 계획 수정과 확정"]
-    C --> F["experiment · 실험 진행"]
-    D --> G["서비스 호출과 JSON 응답"]
-    E --> G
-    F --> G
-    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
-    class A focus
-```
-
 ## 폴더 구조
 
 ```text

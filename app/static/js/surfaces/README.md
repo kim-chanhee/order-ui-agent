@@ -2,19 +2,6 @@
 
 서버의 Surface 데이터를 검사하고 계획 또는 결과 화면의 렌더러로 연결합니다.
 
-## 한눈에 보는 흐름
-
-```mermaid
-flowchart TD
-    A["서버 Surface"] --> B["validation · 화면 형식 검사"]
-    B --> C{"surface_type"}
-    C -->|plan| D["Agent2UI 계획 렌더러"]
-    C -->|result| E["공통 결과 렌더러"]
-    C -->|미지원| F["오류 처리"]
-    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
-    class A focus
-```
-
 ## 주요 파일
 
 | 파일 | 역할 |

@@ -2,20 +2,6 @@
 
 모드 선택·참가자 입력·채팅 전송·실행 상태·결과 표시를 조합하는 프론트엔드 진입점입니다.
 
-## 한눈에 보는 흐름
-
-```mermaid
-flowchart TD
-    A["app.js · 공통 진입점"] --> B["모드 선택과 채팅"]
-    B --> C["API 응답"]
-    C --> D["surfaces · 화면 분기"]
-    D --> E["a2ui · 검토 화면"]
-    D --> F["results · 실행 결과"]
-    G["state와 components"] -.-> D
-    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
-    class A focus
-```
-
 ## 주요 파일
 
 | 파일 | 역할 |

@@ -2,18 +2,6 @@
 
 모드 선택·프로필 입력·채팅 영역의 기본 HTML과 정적 리소스 로딩을 정의합니다.
 
-## 한눈에 보는 흐름
-
-```mermaid
-flowchart TD
-    A["GET / 요청"] --> B["routes · index.html 로딩"]
-    B --> C["모드 선택 · 프로필 · 채팅 HTML"]
-    C --> D["공통 CSS와 계획 CSS"]
-    C --> E["app.js 모듈 시작"]
-    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
-    class A focus
-```
-
 ## 주요 파일
 
 | 파일 | 역할 |

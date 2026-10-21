@@ -1,24 +1,6 @@
 # 폴더와 모드별 코드 배치
 
-## 한눈에 보는 흐름
-
-```mermaid
-flowchart TD
-    A["웹 화면"] --> B["routes · HTTP API"]
-    B --> C["chat · 요청 분류"]
-    C --> D["planning · 분석 계획"]
-    D --> E{"입력 방식"}
-    E -->|Baseline| F["execution · SQL 검증과 실행"]
-    E -->|Agent2UI| G["계획 UI · 사용자 수정과 확정"]
-    G --> F
-    F --> H["설명 · 표 · 차트"]
-    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
-    class A focus
-```
-
-![시스템 전체 구조](../docs/images/system-architecture.png)
-
-자연어 입력에서 두 모드의 처리, SQL 검증·실행과 결과까지의 전체 구성입니다. 그림의 Baseline 직접 생성은 사용자 검토 단계 생략을 요약한 것으로, 현재 코드에서는 내부 계획을 공유합니다.
+[전체 시스템 구조도](../README.md#시스템-구조)
 
 ## 앱 진입점
 

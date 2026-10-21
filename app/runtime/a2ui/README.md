@@ -2,18 +2,6 @@
 
 서버가 발급한 계획 화면의 최신 버전을 보관하고 취소 가능한 프로세스에서 확정 요청을 실행합니다.
 
-## 한눈에 보는 흐름
-
-```mermaid
-flowchart TD
-    A["서버 발급 검토 화면"] --> B["surfaces.py · 계획과 revision 저장"]
-    B --> C["최신 화면 조회와 확정 요청"]
-    C --> D["worker.py · 요청 검증"]
-    D --> E["Agent2UI 실행 서비스"]
-    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
-    class A focus
-```
-
 ## 주요 파일
 
 | 파일 | 역할 |

@@ -1,0 +1,22 @@
+{
+  "aliases": {
+    "배송 실패": ["failed delivery"],
+    "배송 완료": ["package delivered"],
+    "주문 생성": ["place order"],
+    "주문 확정": ["confirm order"],
+    "결제": ["pay order"],
+    "결제 알림": ["payment reminder"],
+    "재고 부족": ["item out of stock"],
+    "재주문": ["reorder item"],
+    "물품 피킹": ["pick item"],
+    "포장 생성": ["create package"],
+    "패키지 발송": ["send package"],
+    "물품": ["item"],
+    "상품": ["product"],
+    "주문": ["order"],
+    "고객": ["customer"],
+    "패키지": ["package"],
+    "배송 기사": ["shipper", "courier"],
+    "판매 담당자": ["sales person"]
+  }
+}

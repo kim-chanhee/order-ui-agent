@@ -1,0 +1,125 @@
+{
+  "timeline_anchor": {
+    "table": "analysis_shipment_status_orders",
+    "field": "status_at",
+    "description": "The shared operational timeline endpoint for relative logistics and order analyses."
+  },
+  "entity_roles": {
+    "order": {
+      "semantic_terms": ["order", "orders", "주문"],
+      "identifier_fields": ["order_id"]
+    },
+    "item": {
+      "semantic_terms": ["item", "items", "물품", "개별 물품"],
+      "identifier_fields": ["item_id", "ocel_object_id"],
+      "display_name_fields": ["product_id", "product_name"],
+      "display_name_via": "product"
+    },
+    "product": {
+      "semantic_terms": ["product", "products", "상품", "상품명", "물품명", "물품 명"],
+      "identifier_fields": ["product_id"],
+      "display_name_fields": ["product_id", "product_name"]
+    },
+    "customer": {
+      "semantic_terms": ["customer", "customers", "고객"],
+      "identifier_fields": ["customer_id"]
+    }
+  },
+  "attribute_roles": {
+    "display_name": ["product_id", "product_name", "item_name", "name", "label"],
+    "identifier": ["order_id", "item_id", "customer_id", "event_id", "ocel_id", "ocel_object_id"],
+    "price": ["price"],
+    "weight": ["weight"],
+    "change_history": ["ocel_changed_field"]
+  },
+  "table_grains": {
+    "analysis_failed_delivery_orders": {
+      "grain": "failed_delivery_order_event",
+      "can_duplicate_entity": true,
+      "preferred_for": ["failed_delivery_order_count"]
+    },
+    "analysis_order_item_products": {
+      "grain": "order_item",
+      "can_duplicate_entity": false,
+      "display_name_field": "product_name"
+    },
+    "analysis_failed_delivery_items": {
+      "grain": "failed_order_item",
+      "can_duplicate_entity": false,
+      "display_name_field": "product_name",
+      "preferred_for": ["failed_delivery_item_names", "failed_delivery_product_names"]
+    },
+    "object_items": {
+      "grain": "item_attribute_history",
+      "can_duplicate_entity": true,
+      "history_fields": ["ocel_changed_field", "price", "weight"]
+    },
+    "analysis_item_events": {
+      "grain": "item_event",
+      "can_duplicate_entity": true
+    },
+    "event_object": {
+      "grain": "event_object_relationship",
+      "can_duplicate_entity": true
+    }
+  },
+  "entity_relationships": [
+    {
+      "name": "order_to_item_membership",
+      "source_entity": "order",
+      "target_entity": "item",
+      "table": "object_object",
+      "source_field": "ocel_source_id",
+      "target_field": "ocel_target_id",
+      "qualifier_field": "ocel_qualifier",
+      "qualifier_value": "comprises"
+    },
+    {
+      "name": "item_to_product_type",
+      "source_entity": "item",
+      "target_entity": "product",
+      "table": "object_object",
+      "source_field": "ocel_source_id",
+      "target_field": "ocel_target_id",
+      "qualifier_field": "ocel_qualifier",
+      "qualifier_value": "is a",
+      "note": "In this dataset the target object id is the human-readable product name."
+    }
+  ],
+  "entity_lifecycles": {
+    "order": {
+      "semantic_terms": ["order", "orders", "order_id", "주문"],
+      "table": "analysis_order_events",
+      "id_field": "order_id",
+      "time_field": "event_time",
+      "creation_field": "event_type",
+      "creation_value": "place order"
+    }
+  },
+  "event_sources": {
+    "package delivered": {
+      "table": "event_packagedelivered",
+      "event_id_field": "ocel_id",
+      "time_field": "ocel_time",
+      "note": "Use this raw event table with event_object when item-level completion is absent from an analysis table."
+    }
+  },
+  "direct_scope_terms": ["direct", "directly", "직접", "연결된"],
+  "relationship_scopes": [
+    {
+      "name": "event_items_within_selected_orders",
+      "when": "Items directly linked to events belonging to a selected order set",
+      "event_object_table": "event_object",
+      "event_id_field": "ocel_event_id",
+      "object_id_field": "ocel_object_id",
+      "object_qualifier_field": "ocel_qualifier",
+      "object_qualifier_value": "item",
+      "membership_table": "object_object",
+      "parent_id_field": "ocel_source_id",
+      "member_id_field": "ocel_target_id",
+      "membership_qualifier_field": "ocel_qualifier",
+      "membership_qualifier_value": "comprises",
+      "rule": "Intersect event-linked items with membership in the selected parent records because one event can be shared by multiple parents."
+    }
+  ]
+}

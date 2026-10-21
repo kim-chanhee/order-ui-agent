@@ -1,0 +1,22 @@
+{
+  "tasks": [
+    {
+      "task_id": "task1",
+      "label": "과제 1",
+      "complexity": "simple",
+      "prompt": "현재 데이터베이스에 어떤 테이블이 있는지 확인하세요.",
+      "expected_result": {
+        "min_row_count": 1
+      }
+    },
+    {
+      "task_id": "task2",
+      "label": "과제 2",
+      "complexity": "complex",
+      "prompt": "관계가 있는 두 테이블을 찾아 JOIN 가능한 키와 예시 결과를 확인하세요.",
+      "expected_result": {
+        "min_row_count": 1
+      }
+    }
+  ]
+}

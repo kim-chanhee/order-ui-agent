@@ -1,0 +1,897 @@
+/* A2UI 전용: 계획 카드·입력 위젯·수정·확정 상태와 반응형 배치. */
+.date-range {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.date-mode,
+.date-inputs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.date-mode {
+  grid-template-columns: repeat(2, minmax(0, max-content));
+}
+
+.date-mode label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+  min-height: 32px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.msg.bot:has(.plan-card) {
+  width: 100%;
+  max-width: 100%;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.plan-card {
+  align-self: stretch;
+  max-width: 100%;
+  white-space: normal;
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.plan-card {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-6);
+}
+
+.plan-card-head h3 {
+  margin: 0 0 var(--space-2);
+  font-size: 1.25rem;
+  letter-spacing: -0.025em;
+}
+
+.plan-card-head p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.plan-overview {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+
+.plan-sentence {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.2rem;
+  font-weight: 650;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.plan-sentence-blocked {
+  color: var(--danger);
+  font-weight: 700;
+  text-decoration: underline wavy var(--danger);
+  text-underline-offset: 3px;
+}
+
+.plan-sentence-missing {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.plan-infeasible-reasons {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--border));
+  border-radius: var(--radius-md);
+  background: var(--danger-soft);
+}
+
+.plan-infeasible-reasons > strong {
+  color: var(--danger);
+  font-size: 0.9rem;
+}
+
+.plan-infeasible-reasons ul {
+  margin: 0;
+  padding-left: var(--space-5);
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.plan-primary-controls {
+  padding: 0;
+  background: transparent;
+}
+
+@media (max-width: 640px) {
+.plan-primary-controls { grid-template-columns: minmax(0, 1fr); }
+}
+
+.plan-calculation {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.plan-calculation small {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.plan-assumptions {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, #d97706 38%, var(--border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, #f59e0b 9%, var(--surface));
+}
+
+.plan-assumptions > strong {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: #92400e;
+}
+
+.plan-assumptions ul {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-left: var(--space-5);
+  color: var(--text-secondary);
+}
+
+.plan-readonly {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.plan-readonly small { color: var(--text-muted); }
+
+.plan-readonly p { margin: var(--space-1) 0 0; color: var(--text-secondary); }
+
+.plan-field,
+.plan-field-full {
+  min-width: 0;
+}
+
+.plan-field {
+  display: grid;
+  gap: var(--space-2);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.plan-field-help {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.plan-field-full {
+  grid-column: 1 / -1;
+}
+
+.plan-field input,
+.plan-field select,
+.plan-field textarea,
+.date-inputs input,
+.date-inputs select {
+  width: 100%;
+  min-height: 40px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  font: inherit;
+}
+
+.plan-choice-group {
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.plan-choice-group legend {
+  padding: 0 var(--space-1);
+  font-weight: 700;
+}
+
+.plan-choice-chips {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.plan-choice-chip {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.plan-choice-chip.is-selected,
+.plan-choice-chip:has(input:checked) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.plan-choice-chip input {
+  width: auto;
+  min-height: auto;
+  margin-top: 3px;
+}
+
+.plan-choice-chip span,
+.choice-field label span {
+  display: grid;
+  gap: 2px;
+}
+
+.plan-choice-chip small,
+.choice-field label small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.plan-advanced {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.plan-editor {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: clip;
+}
+
+.plan-editor > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  cursor: pointer;
+  list-style: none;
+  background: var(--surface-muted);
+}
+
+.plan-editor > summary::-webkit-details-marker { display: none; }
+
+.plan-editor > summary::after {
+  content: "+";
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--accent);
+  background: var(--surface);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.plan-editor[open] > summary::after { content: "−"; }
+
+.plan-editor-summary {
+  display: grid;
+  gap: 3px;
+}
+
+.plan-editor-summary strong { font-size: 1rem; }
+
+.plan-editor-summary small {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.plan-editor-fields {
+  padding: var(--space-4);
+}
+
+.plan-editor-dashboard {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  padding: var(--space-5);
+  background: #f4f6f8;
+}
+
+.plan-editor-panel {
+  min-width: 0;
+  padding: var(--space-6);
+  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.035);
+}
+
+.plan-editor-panel > .plan-field,
+.plan-editor-panel > .plan-field-full,
+.plan-editor-panel > fieldset {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  grid-column: auto;
+}
+
+.plan-editor-panel legend,
+.plan-editor-panel > .plan-field > span:first-child {
+  margin: 0 0 4px;
+  padding: 0;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 750;
+  letter-spacing: -0.015em;
+}
+
+.plan-editor-panel .plan-field-help {
+  display: block;
+  margin: 0 0 var(--space-5);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.plan-editor-panel .plan-choice-chips {
+  margin-top: 0;
+}
+
+.plan-editor-panel .plan-multi-choice .plan-choice-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.plan-editor-panel .plan-multi-choice .plan-choice-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 9px 16px;
+  border-color: transparent;
+  border-radius: 999px;
+  background: #f1f3f5;
+  color: #495057;
+  font-size: 0.875rem;
+  font-weight: 650;
+  transition: background var(--transition), border-color var(--transition), color var(--transition), box-shadow var(--transition);
+}
+
+.plan-editor-panel .plan-multi-choice .plan-choice-chip input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.plan-editor-panel .plan-multi-choice .plan-choice-chip.is-selected,
+.plan-editor-panel .plan-multi-choice .plan-choice-chip:has(input:checked) {
+  border-color: color-mix(in srgb, var(--accent) 36%, white);
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: none;
+}
+
+.plan-editor-panel .plan-multi-choice .plan-choice-chip.is-selected strong::before,
+.plan-editor-panel .plan-multi-choice .plan-choice-chip:has(input:checked) strong::before {
+  content: "✓";
+  margin-right: 6px;
+  font-weight: 800;
+}
+
+.plan-editor-panel .plan-list-choice .plan-choice-chips {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-3);
+}
+
+.plan-editor-panel .plan-list-choice .plan-choice-chip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 500;
+  transition: background var(--transition), border-color var(--transition), box-shadow var(--transition);
+}
+
+.plan-editor-panel .plan-list-choice .plan-choice-chip:has(small) {
+  grid-column: 1 / -1;
+}
+
+.plan-editor-panel .plan-list-choice .plan-choice-chip:hover {
+  background: var(--surface-muted);
+}
+
+.plan-editor-panel .plan-list-choice .plan-choice-chip.is-selected,
+.plan-editor-panel .plan-list-choice .plan-choice-chip:has(input:checked) {
+  border-color: color-mix(in srgb, var(--accent) 72%, white);
+  background: color-mix(in srgb, var(--accent) 4%, white);
+  box-shadow: none;
+}
+
+.plan-editor-panel .plan-list-choice .plan-choice-chip input {
+  position: static;
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin: 2px 0 0;
+  padding: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.plan-editor-panel .plan-choice-chip:focus-within {
+  outline: 3px solid var(--accent-ring);
+  outline-offset: 2px;
+}
+
+.plan-editor-panel--period .date-range {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.plan-editor-panel--period {
+  grid-column: 1 / -1;
+}
+
+.plan-editor-panel--period .date-inputs {
+  max-width: 460px;
+}
+
+.plan-editor-panel--period .plan-field-help {
+  order: 0;
+}
+
+.plan-editor-panel--period .date-mode {
+  margin-bottom: var(--space-1);
+}
+
+.plan-editor > .plan-advanced {
+  margin: 0 var(--space-4) var(--space-4);
+}
+
+.plan-advanced summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.plan-advanced-summary {
+  display: grid;
+  gap: 2px;
+}
+
+.plan-advanced-summary small {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.plan-advanced-count {
+  flex: 0 0 auto;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.75rem;
+}
+
+.plan-suggestions {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.plan-suggestions > small {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.plan-suggestions .plan-choice-chips {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: var(--space-2);
+}
+
+.plan-suggestions .plan-choice-chips button {
+  min-width: 0;
+  height: 100%;
+  padding: var(--space-3);
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.plan-grid-advanced {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.plan-applied-constraints,
+.plan-additional-condition {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.plan-applied-constraints > strong,
+.plan-additional-condition > strong {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.plan-additional-condition > small {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.plan-applied-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.plan-applied-list span {
+  padding: 7px 11px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.plan-additional-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+}
+
+.plan-additional-input input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font: inherit;
+}
+
+.plan-additional-input button {
+  min-width: 104px;
+}
+
+.plan-field-error,
+.plan-status.invalid {
+  color: var(--danger);
+}
+
+.date-range,
+.choice-field {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.date-mode,
+.date-inputs,
+.choice-field {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.choice-field label {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.date-mode label {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.msg .date-mode label {
+  white-space: nowrap;
+}
+
+.date-inputs > * {
+  flex: 1 1 180px;
+}
+
+.plan-review {
+  padding: var(--space-4);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.plan-review h4 {
+  margin: 0 0 var(--space-3);
+}
+
+.plan-review-intent {
+  margin: 0 0 var(--space-4);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.plan-review dl {
+  display: grid;
+  grid-template-columns: minmax(88px, auto) 1fr;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+
+.plan-review dt {
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.plan-review dd {
+  margin: 0;
+}
+
+.plan-review-hints {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.plan-result-preview {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.plan-result-preview > strong {
+  font-size: 0.875rem;
+}
+
+.plan-result-preview p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.plan-preview-columns {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding-bottom: var(--space-1);
+}
+
+.plan-preview-columns span {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.plan-review-hints strong {
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+.plan-review-hints ul {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-left: var(--space-5);
+  color: var(--text-secondary);
+}
+
+.plan-actions {
+  position: static;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: var(--shadow-sm);
+}
+
+.msg.confirmed .plan-actions,
+.msg.confirmed .plan-editor {
+  display: none;
+}
+
+.plan-confirmed-badge {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: var(--space-2);
+  padding: 4px 9px;
+  border-radius: 999px;
+  color: #176b45;
+  background: #e8f7ef;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.plan-status-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.plan-status-group::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.plan-action-buttons {
+  display: flex;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+}
+
+@media (max-width: 720px) {
+.plan-choice-chips {
+    grid-template-columns: 1fr;
+  }
+
+.plan-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+.plan-status-group {
+    justify-content: space-between;
+  }
+
+.plan-action-buttons {
+    width: 100%;
+  }
+
+.plan-action-buttons button {
+    flex: 1 1 auto;
+  }
+
+.plan-action-buttons button:last-child { flex-grow: 2; }
+
+.plan-card { padding: var(--space-4); }
+
+.plan-editor-dashboard {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+    padding: var(--space-3);
+  }
+
+.plan-editor-panel {
+    padding: var(--space-4);
+  }
+
+.plan-editor-panel--period {
+    grid-column: auto;
+  }
+
+.plan-editor-panel .plan-multi-choice .plan-choice-chips {
+    display: flex;
+  }
+
+.plan-additional-input { grid-template-columns: 1fr; }
+
+.plan-additional-input button { width: 100%; }
+
+.plan-suggestions .plan-choice-chips { grid-template-columns: 1fr; }
+
+.plan-calculation { align-items: flex-start; flex-direction: column; gap: 2px; }
+}
+
+.plan-status {
+  margin: 0 auto 0 0;
+  color: var(--text-muted);
+}
+
+@media (max-width: 720px) {
+.plan-grid { grid-template-columns: 1fr; }
+}
+
+/* A2UI 결과의 후속 분석 버튼 */
+.result-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.result-actions strong {
+  margin-right: var(--space-1);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.result-actions button {
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  font-size: 0.8125rem;
+}
+

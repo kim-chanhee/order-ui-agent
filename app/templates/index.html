@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Schema-driven SQLite Agent</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css?v=a2ui-separation">
+  <link rel="stylesheet" href="/static/a2ui/review.css?v=a2ui-separation">
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="site-header">
+        <div class="brand-mark" aria-hidden="true">SQL</div>
+        <div class="brand-text">
+          <h1>Schema-driven SQLite Agent</h1>
+          <p>자연어 질의 · 프롬프트 / Agent2UI 비교 실험</p>
+        </div>
+      </header>
+
+      <nav class="stepper" aria-label="진행 단계">
+        <div class="step active" data-step="mode">
+          <span class="step-num">1</span>
+          <span>모드 선택</span>
+        </div>
+        <span class="step-divider" aria-hidden="true"></span>
+        <div class="step" data-step="survey">
+          <span class="step-num">2</span>
+          <span>사용자 정보</span>
+        </div>
+        <span class="step-divider" aria-hidden="true"></span>
+        <div class="step" data-step="chat">
+          <span class="step-num">3</span>
+          <span>질의</span>
+        </div>
+      </nav>
+
+      <section id="mode-gate" class="gate panel">
+        <div class="panel-head">
+          <h2>접속 모드 선택</h2>
+          <p>두 모드 중 하나를 선택해 동일한 질문을 비교할 수 있습니다.</p>
+        </div>
+        <div class="panel-body">
+          <div class="mode-grid">
+            <button class="mode-option" type="button" data-app-mode="user">
+              <span class="mode-icon" aria-hidden="true">👤</span>
+              <strong>사용자 모드</strong>
+              <span>프로필을 입력한 뒤 질문합니다. 실험 참가자용 흐름입니다.</span>
+            </button>
+            <button class="mode-option" type="button" data-app-mode="admin">
+              <span class="mode-icon" aria-hidden="true">⚙</span>
+              <strong>관리자 모드</strong>
+              <span>프로필 없이 바로 질의 화면으로 이동합니다.</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section id="survey-gate" class="gate panel" hidden>
+        <div class="panel-head">
+          <h2>사용자 정보 입력</h2>
+          <p>아래 항목을 작성하면 질의 화면으로 이동합니다.</p>
+        </div>
+        <div class="panel-body">
+          <form id="profile-form">
+            <div class="survey-grid">
+              <label class="full">참가자 번호
+                <input
+                  id="participant-id"
+                  name="participant_id"
+                  type="text"
+                  required
+                  autocomplete="off"
+                  maxlength="12"
+                  pattern="P[0-9]{3,}"
+                  placeholder="예: P001"
+                  aria-describedby="participant-id-help participant-id-error"
+                >
+                <small id="participant-id-help">연구자가 안내한 참가자 번호를 입력해 주세요.</small>
+              </label>
+              <p id="participant-id-error" class="form-error full" hidden role="alert">
+                참가자 번호를 P001 형식으로 입력해 주세요.
+              </p>
+              <label>성별
+                <select name="gender" required>
+                  <option value="">선택</option>
+                  <option value="female">여성</option>
+                  <option value="male">남성</option>
+                  <option value="non_binary">논바이너리</option>
+                  <option value="prefer_not_to_say">응답하지 않음</option>
+                </select>
+              </label>
+              <label>나이
+                <input name="age" type="number" min="10" max="120" placeholder="예: 29" required>
+              </label>
+              <label>학력
+                <select name="education" required>
+                  <option value="">선택</option>
+                  <option value="high_school">고등학교 졸업 이하</option>
+                  <option value="associate">전문학사</option>
+                  <option value="bachelor">학사</option>
+                  <option value="master">석사</option>
+                  <option value="doctorate">박사</option>
+                  <option value="other">기타</option>
+                </select>
+              </label>
+              <label>직업
+                <input name="occupation" type="text" placeholder="예: 학생, 개발자, 연구원" required>
+              </label>
+              <label>AI 사용 경험
+                <select name="ai_experience" required>
+                  <option value="">선택</option>
+                  <option value="none">거의 없음</option>
+                  <option value="beginner">초급</option>
+                  <option value="intermediate">중급</option>
+                  <option value="advanced">상급</option>
+                </select>
+              </label>
+              <label>LLM 사용 빈도
+                <select name="llm_frequency" required>
+                  <option value="">선택</option>
+                  <option value="never">사용 안 함</option>
+                  <option value="rarely">월 1회 이하</option>
+                  <option value="monthly">월 몇 회</option>
+                  <option value="weekly">주 몇 회</option>
+                  <option value="daily">거의 매일</option>
+                </select>
+              </label>
+              <fieldset class="full">
+                <legend>사용해 본 AI 도구 종류</legend>
+                <div class="checks">
+                  <label><input name="ai_tools" value="chatgpt" type="checkbox"> ChatGPT</label>
+                  <label><input name="ai_tools" value="openai" type="checkbox"> OpenAI GPT</label>
+                  <label><input name="ai_tools" value="claude" type="checkbox"> Claude</label>
+                  <label><input name="ai_tools" value="copilot" type="checkbox"> Copilot</label>
+                  <label><input name="ai_tools" value="image_ai" type="checkbox"> 이미지 생성 AI</label>
+                  <label><input name="ai_tools" value="none" type="checkbox"> 없음</label>
+                </div>
+              </fieldset>
+              <label class="full">기타 AI 도구
+                <input name="ai_tools_other" type="text" placeholder="목록에 없는 도구가 있으면 입력">
+              </label>
+              <p id="profile-error" class="form-error full" hidden role="alert">
+                사용해 본 AI 도구를 하나 이상 선택하거나, 기타 도구를 입력해 주세요.
+              </p>
+              <div class="full form-actions">
+                <button type="button" class="ghost" id="survey-back">이전</button>
+                <button type="submit">질의 화면으로 이동</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <main id="app-shell" class="app-shell" hidden>
+        <div class="app-hero">
+          <h2>질의하기</h2>
+          <p><strong>프롬프트</strong> 모드는 에이전트가 직접 되묻고, <strong>Agent2UI</strong> 모드는 구조화 초안을 확인한 뒤 실행합니다.</p>
+        </div>
+        <div class="panel chat-shell">
+          <div class="chat-header">
+            <span class="chat-header-title">대화</span>
+            <div class="segmented" role="group" aria-label="입력 방식">
+              <button class="active" type="button" data-input-source="baseline">프롬프트</button>
+              <button type="button" data-input-source="agent2ui">Agent2UI</button>
+            </div>
+            <button id="capture-toggle" class="capture-toggle" type="button" aria-pressed="false">캡처용 전체보기</button>
+          </div>
+          <div id="chat" class="chat">
+            <div class="msg meta">질문을 입력하면 동일 세션에서 대화가 이어집니다.</div>
+          </div>
+          <form id="chat-form" class="composer">
+            <textarea id="question" placeholder="예: 가장 최근 데이터 10개를 보여줘" required rows="2"></textarea>
+            <div class="composer-actions">
+              <button id="submit" type="submit">질문하기</button>
+              <button id="stop" class="stop" type="button" disabled>중단</button>
+            </div>
+          </form>
+        </div>
+      </main>
+    </div>
+  <script type="module" src="/static/js/app.js?v=a2ui-separation"></script>
+  </body>
+</html>

@@ -4,6 +4,9 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
 FILES = (
+    "scripts/create_demo_db.py", "docs/getting-started.md", "docs/system-guide.md",
+    "examples/demo/.env.example", "examples/demo/schema_summary.md",
+    "examples/demo/value_aliases.json", "examples/demo/analysis_semantics.json",
     "README.md", ".gitignore", ".env.example", ".python-version",
     "pyproject.toml", "uv.lock", "package.json", "main.py",
     ".github/workflows/ci.yml", "scripts/export_public.py",

@@ -1,0 +1,3 @@
+{
+  "timeline_anchor": {"table": "orders", "field": "created_at"}
+}

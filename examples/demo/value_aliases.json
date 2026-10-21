@@ -1,0 +1,7 @@
+{
+  "aliases": {
+    "배송 실패": "failed",
+    "배송 완료": "delivered",
+    "대기": "pending"
+  }
+}

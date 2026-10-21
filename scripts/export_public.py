@@ -7,6 +7,9 @@ FILES = (
     "README.md", ".gitignore", ".env.example", ".python-version",
     "pyproject.toml", "uv.lock", "package.json", "main.py",
     ".github/workflows/ci.yml", "scripts/export_public.py",
+    "docs/images/prompt-result.png", "docs/images/follow-up-result.png",
+    "docs/images/agent2ui-plan.png", "docs/images/interaction-flow.png",
+    "docs/images/evaluation-process.png",
     "Data/docs/schema_summary.md", "Data/docs/analysis_semantics.json",
     "Data/docs/value_aliases.json", "Data/migrations/001_analysis_views.sql",
 )

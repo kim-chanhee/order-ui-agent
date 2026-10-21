@@ -6,7 +6,7 @@
 
 SQL을 모르는 사용자가 AI의 해석을 확인하고 수정할 수 있도록 만든 연구용 웹 시스템입니다. 물류·주문 데이터 분석을 대상으로, 질문을 즉시 실행하는 프롬프트 방식과 실행 전에 분석 계획을 검토하는 Agent2UI 방식을 비교합니다.
 
-[빠른 시작](#빠른-시작) · [사용 화면](docs/system-guide.md#사용-화면) · [구조와 설계](#시스템-구조) · [설치·문제 해결](docs/getting-started.md) · [API](app/routes/README.md)
+[데이터와 시작](#데이터-출처와-실행-준비) · [사용 화면](docs/system-guide.md#사용-화면) · [구조와 설계](#시스템-구조) · [설치·문제 해결](docs/getting-started.md) · [API](app/routes/README.md)
 
 ## 어떤 문제를 해결하나요?
 
@@ -28,31 +28,29 @@ Agent2UI는 기간·필터·지표·집계 기준을 편집 가능한 UI로 먼�
 
 기존 주문 DB를 사용한 계획 화면 일부입니다. [질문·결과·후속 질문 화면 전체 보기](docs/system-guide.md#사용-화면)
 
-## 빠른 시작
+## 데이터 출처와 실행 준비
 
-Python **3.13+**, [uv](https://docs.astral.sh/uv/getting-started/installation/), 모델 API 키가 필요합니다. 아래 예제는 실제 주문·참가자 자료 대신 합성 데이터를 사용합니다.
+주문 데이터는 RWTH Aachen 연구진이 만든 **Order Management OCEL 2.0 이벤트 로그**입니다. 주문 접수·결제·포장·배송 과정을 시뮬레이션한 데이터로, 실기업 거래 자료와 사용자 연구 설문은 서로 구분합니다. [Zenodo 고정 레코드·DOI](https://zenodo.org/records/18373906)에서 SQLite 원본을 직접 받을 수 있습니다.
+
+**GitHub에는 `.sqlite` 파일을 넣지 않습니다.** 데이터의 출처·객체·사건·관계·집계 시 주의점과 프로젝트 가공 계층을 [Data 안내](Data/README.md)에 정리했습니다. 원본과 가공 DB의 차이 및 현재 재현 범위도 확인할 수 있습니다.
 
 ```bash
 git clone https://github.com/kim-chanhee/order-ui-agent.git
 cd order-ui-agent
 uv sync --dev --locked
-python3 scripts/create_demo_db.py
-cp -n examples/demo/.env.example .env
-# .env의 OPENAI_API_KEY와 모델 설정을 입력하세요.
+cp -n .env.example .env
+# Data/README.md에 따라 DB를 내려받고 경로·스키마 설정을 맞춥니다.
+# .env에 API 키와 모델 설정을 입력한 뒤 실행합니다.
 uv run order-ui-agent
 ```
 
-<http://127.0.0.1:8000> → **관리자 모드** → 프롬프트 또는 Agent2UI 선택. 기존 `.env`가 있다면 데모용 경로를 수동 반영하세요. 데모 생성기는 기존 DB를 덮어쓰지 않습니다.
+Python 3.13+, [uv](https://docs.astral.sh/uv/getting-started/installation/), 모델 API 연결 설정이 필요합니다. <http://127.0.0.1:8000>에서 관리자 모드로 시작합니다. 원본 다운로드만으로 가공된 연구 DB가 완성되지는 않으므로 먼저 데이터 준비 안내를 확인하세요. 간단한 앱 점검은 [선택 사항인 합성 데모](docs/getting-started.md)로도 할 수 있습니다.
 
-| 데모 질문 | 합성 데이터 정답 |
-|---|---|
-| 전체 주문은 몇 건이야? | 8건 |
-| 배송 실패 주문은 몇 건이야? | 3건 |
-| 배송 실패 주문을 상품별로 집계해줘 | Alpha 2건, Beta 1건 |
+## A2UI 연구 분석 노트북
 
-Agent2UI에서는 생성된 계획의 필터·집계 기준을 확인하고 확정합니다. 정답은 데이터 기준이며 실제 LLM 응답의 정확도는 별도 확인이 필요합니다. 기존 화면 캡처의 데이터·숫자는 합성 데모와 다릅니다.
+`Data/A2UI`에는 신뢰도·기술통계·상관분석·이원분산분석·가정 검정·Box–Cox 재분석·행동 로그 분석 **노트북 7개**와 공통 모듈을 제공합니다. 실행 출력과 원자료 링크는 제거했으며, 참가자 설문·명단·개별 로그는 배포하지 않습니다. 원자료가 필요하므로 코드 열람과 전체 실행 가능 여부를 구분합니다.
 
-[설치·환경 설정·직접 SQL 확인·오류 해결](docs/getting-started.md)
+[노트북 목록·입력 데이터·실행 순서 보기](Data/A2UI/README.md)
 
 ## 시스템 구조
 
@@ -92,6 +90,8 @@ uv run pytest tests/execution -q
 
 | 목적 | 문서 |
 |---|---|
+| 데이터의 출처·구조·준비 방법 | [Data 안내](Data/README.md) |
+| 사용자 연구 분석 노트북 7개 | [A2UI 분석 안내](Data/A2UI/README.md) |
 | 설치·합성 데모·본인 DB 연결·문제 해결 | [시작 안내](docs/getting-started.md) |
 | 모든 화면·구조도·계획 UI 생성·평가 절차 | [시스템 상세 설명](docs/system-guide.md) |
 | 공통·모드별 코드와 요청 경로 | [백엔드](app/README.md) · [API](app/routes/README.md) |

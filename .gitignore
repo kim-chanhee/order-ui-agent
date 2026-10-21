@@ -19,7 +19,10 @@ htmlcov/
 
 # Private research data and runtime outputs (kept locally)
 Data/logs/
-Data/A2UI/
+Data/A2UI/*
+!Data/A2UI/*.ipynb
+!Data/A2UI/analysis_common.py
+!Data/A2UI/README.md
 Data/analysis/
 Data/eval/results/
 Data/docs/table_samples/

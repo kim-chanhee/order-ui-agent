@@ -54,6 +54,8 @@ Python 3.13+, [uv](https://docs.astral.sh/uv/getting-started/installation/), 모
 
 [노트북 목록·입력 데이터·실행 순서 보기](Data/A2UI/README.md)
 
+실험에 사용한 [참여 안내문·과제와 제공된 분석 결과표](docs/experiments/README.md)도 함께 보관합니다. Word 원본과 GitHub 열람본을 제공하며, 결과표 내부에서 수치와 해석이 맞지 않는 부분은 자료 안내에 표시했습니다.
+
 ## 시스템 구조
 
 ![자연어 입력에서 두 모드의 처리와 SQL 검증·실행 및 결과까지의 시스템 구조도](docs/images/system-architecture.png)
@@ -93,6 +95,7 @@ uv run pytest tests/execution -q
 | 목적 | 문서 |
 |---|---|
 | 데이터의 출처·구조·준비 방법 | [Data 안내](Data/README.md) |
+| 실험 참여 안내·과제·제공된 분석 결과표 | [실험 자료](docs/experiments/README.md) |
 | 사용자 연구 분석 노트북 7개 | [A2UI 분석 안내](Data/A2UI/README.md) |
 | 설치·합성 데모·본인 DB 연결·문제 해결 | [시작 안내](docs/getting-started.md) |
 | 모든 화면·구조도·계획 UI 생성·평가 절차 | [시스템 상세 설명](docs/system-guide.md) |

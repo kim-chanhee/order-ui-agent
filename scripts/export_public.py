@@ -6,6 +6,12 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
 FILES = (
+    "docs/experiments/README.md", "docs/experiments/participant-guide-v2.md",
+    "docs/experiments/study-results.md", "docs/experiments/sources.json",
+    "docs/experiments/originals/participant-guide-v2.docx",
+    "docs/experiments/originals/study-results.docx",
+    "docs/experiments/images/study-results-1.png",
+    "docs/experiments/images/study-results-2.png",
     "scripts/create_demo_db.py", "docs/getting-started.md", "docs/system-guide.md",
     "examples/demo/.env.example", "examples/demo/schema_summary.md",
     "examples/demo/value_aliases.json", "examples/demo/analysis_semantics.json",

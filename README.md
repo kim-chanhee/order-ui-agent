@@ -54,7 +54,7 @@ Python 3.13+, [uv](https://docs.astral.sh/uv/getting-started/installation/), 모
 
 [노트북 목록·입력 데이터·실행 순서 보기](Data/A2UI/README.md)
 
-실험에 사용한 [참여 안내문·과제와 제공된 분석 결과표](docs/experiments/README.md)도 함께 보관합니다. 사용자가 수정한 최신 Word 원본과 GitHub 열람본을 제공하며, 수정본 반영 사항은 자료 안내에 정리했습니다.
+실험에 사용한 [참여 안내문·과제와 제공된 분석 결과표](docs/experiments/README.md)도 함께 보관합니다. Word 파일과 GitHub 열람본을 제공하며, 자료 안내에서 실험 과제와 결과표 구성을 확인할 수 있습니다.
 
 ## 시스템 구조
 

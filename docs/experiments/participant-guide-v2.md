@@ -1,6 +1,6 @@
 # 실험 참여 안내: 배송 데이터 분석 가이드
 
-> 사용자 제공 Word 원본을 GitHub 열람용으로 변환한 보존본입니다. 수치·문구·절 번호는 원문을 따릅니다. [자료 안내와 확인 사항](README.md) · [Word 원본](originals/participant-guide-v2.docx)
+> 사용자 제공 Word 원본을 GitHub 열람용으로 변환한 보존본입니다. 수치·문구·절 번호는 원문을 따릅니다. [자료 안내](README.md) · [Word 원본](originals/participant-guide-v2.docx)
 
 ## 1. 실험 소개
 

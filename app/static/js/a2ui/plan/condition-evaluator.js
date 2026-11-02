@@ -1,4 +1,4 @@
-import { getValueAtPath } from "../../utils.js?v=plan-sentence-redesign";
+import { getValueAtPath } from "../../utils.js?v=dynamic-blueprint-v1";
 
 const OPERATORS = new Set(["eq", "neq", "contains", "not_contains", "in", "exists", "not_empty"]);
 

@@ -1,7 +1,7 @@
 import {
-  dateClause, semanticLabel, dimensionLabel, dimensionStem, metricNounPhrase,
+  dateClause, unitLabel, semanticLabel, dimensionLabel, dimensionStem, metricNounPhrase,
   sortFieldLabel, josaEulReul, josaWaGwa, josaIGa,
-} from "./plan-labels.js?v=plan-sentence-redesign";
+} from "./plan-labels.js?v=dynamic-blueprint-v1";
 
 // Build the "search plan in one sentence" as an ordered list of segments so the
 // renderer can paint infeasible parts red and keep the sentence live-updating
@@ -23,7 +23,7 @@ export function buildPlanSentence(plan = {}, { infeasibleFields = new Set() } = 
   const sort = Array.isArray(plan.sort) ? plan.sort[0] : null;
   const limit = Number.isFinite(plan.limit) ? plan.limit : null;
 
-  const contentCount = (metrics.length ? 1 : 0) + (groupBy.length ? 1 : 0) + (events.length ? 1 : 0);
+  const contentCount = (metrics.length ? 1 : 0) + (groupBy.length ? 1 : 0) + (events.length ? 1 : 0) + ((plan.requested_attributes || []).length ? 1 : 0);
   if (plan.source === "safe_fallback" || contentCount < 1) {
     return [{ text: fallbackText(plan), kind: "fallback" }];
   }
@@ -50,6 +50,11 @@ export function buildPlanSentence(plan = {}, { infeasibleFields = new Set() } = 
 
   const limitClause = limit ? `상위 ${limit}건을 ` : "";
 
+  if (!metrics.length && (plan.requested_attributes || []).length) {
+    const attribute = plan.requested_attributes.includes("display_name") ? "이름 목록" : "요청한 속성";
+    segments.push({text:`${unitLabel(plan.target_entity)} ${attribute}을 조회합니다.`,kind:"tail"});
+    return segments;
+  }
   if (!metrics.length) {
     segments.push({ text: "분석 지표를 정하면", kind: "metric", fieldPath: "metric.kind", missing: true });
     segments.push({ text: `${limitClause}조회합니다.`, kind: "tail" });

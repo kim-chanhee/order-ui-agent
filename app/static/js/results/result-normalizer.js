@@ -1,22 +1,3 @@
-export function normalizeAnalysisResult(response = {}) {
-  const executionResult = response.execution_result || response;
-  const normalizedSpec = executionResult.normalized_spec || {};
-  const analysis = normalizedSpec.analysis_execution || executionResult.analysis_payload || response.analysis_result || {};
-  return normalizeAnalysisData({
-    ...analysis,
-    answer: executionResult.answer || response.message || response.answer || "",
-    metadata: {
-      ...(analysis.metadata || {}),
-      execution_route: normalizedSpec.execution_route || executionResult.provider || "",
-      provider: executionResult.provider || "",
-      route_reason: normalizedSpec.route_reason || "",
-      fallback_used: Boolean(normalizedSpec.fallback_used),
-      fallback_error: normalizedSpec.fallback_error || "",
-      result_view: (analysis.metadata || {}).result_view || normalizedSpec.analysis_plan?.output?.view || "table",
-    },
-  });
-}
-
 export function normalizeAnalysisData(analysis = {}) {
   const columns = normalizeColumns(analysis.columns || []);
   const rows = normalizeRows(analysis.rows || [], columns);

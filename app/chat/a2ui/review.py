@@ -1,6 +1,6 @@
 """A2UI 전용 계획 검토 응답과 참조 불명확 시 확인 질문을 만든다."""
 
-from app.chat.responses import generate_reply
+from app.chat.responses import generate_reply, planning_failure_result
 from app.chat.thread_context import context_record_id, compact_context_record, recent_dialogue
 from app.chat.turn_router import TurnDecision
 from app.planning.service import build_review_plan
@@ -25,6 +25,14 @@ def review_response(
     plan = build_review_plan(planning_question or question, thread_id, context_records=context)
     # 확인 API와 화면은 사용자가 실제 입력한 질문을 기준으로 계획을 대조한다.
     plan.analysis_plan.original_question = question
+    if plan.analysis_plan.source == 'safe_fallback':
+        plan_payload, surface = plan_response_parts(plan, payload, thread_id)
+        result = planning_failure_result(question, plan, 'agent2ui')
+        return ChatResponse(
+            answer=result['answer'], thread_id=thread_id, input_source='agent2ui', plan=plan_payload,
+            a2ui_surface=surface,
+            execution_result=result,
+        ).model_dump(mode='json')
     conversation = recent_dialogue(thread_id, payload.input_source)
     reference = plan.analysis_plan.context_reference
     if not plan.requires_confirmation or (context and (
@@ -51,19 +59,8 @@ def review_response(
                               "normalized_spec": {"original_question": question, "turn_decision": decision.as_payload()}},
         ).model_dump(mode="json")
     plan.ui_state["turn_decision"] = decision.as_payload()
-    _, plan_payload, surface = plan_response_parts(plan, payload, thread_id)
-    answer = generate_reply(
-        question,
-        purpose="introduce_analysis_review_and_request_user_confirmation",
-        evidence={
-            "plan_summary": plan.summary,
-            "missing_fields": plan.missing_fields,
-            "unresolved_constraints": plan.analysis_plan.unresolved_constraints,
-            "new_sql_executed": False,
-            "review_surface_created": True,
-        },
-        conversation=conversation,
-    )
+    plan_payload, surface = plan_response_parts(plan, payload, thread_id)
+    answer = '분석 조건을 확인하고 필요한 항목을 수정한 뒤 실행해 주세요.'
     return ChatResponse(
         answer=answer, thread_id=thread_id, input_source="agent2ui", plan=plan_payload, a2ui_surface=surface,
         execution_result={"kind": "review_required", "input_source": "agent2ui", "provider": "schema_review",

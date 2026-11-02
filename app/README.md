@@ -21,11 +21,10 @@
 | `planning/` | 분석 계획·UI 모델, LLM 계획 생성, 스키마·선택지 구성, 필수값 계산 | `a2ui/review.py`: 검토 응답 조립, `refinement.py`: 추가 조건 수정, `models.py`: 수정 패치, `validator.py`: 확정·편집 검증 |
 | `execution/` | SQL 실행기·도구·안전성·시간 범위·계약 검사, 실패 결과 형식 | `baseline/service.py`: 즉시 실행 응답, `a2ui/service.py`: 확정 계획 실행 응답 |
 | `runtime/` | 취소 가능한 워커, DB 연결·스키마 생성, 대화 결과·문맥·SQL 예시, 채팅 로그 | `a2ui/surfaces.py`: 검토 화면 저장·조회, `a2ui/worker.py`: 확정 요청 검증·실행 연결 |
-| `experiment/` | 실험 세션·과제·단계, 채팅 상호작용·CSV·분석 | `a2ui/interactions.py`: 계획 확정 실행의 편집 시간·변경 내역 기록 |
+| `experiment/` | 실험 세션·과제·단계, 채팅 상호작용·CSV 기록 | `a2ui/interactions.py`: 계획 확정 실행의 편집 시간·변경 내역 기록 |
 | `a2ui/` | `adapter.py`: 두 모드의 결과 화면 변환, `models.py`·`catalog.py`: 화면 전송 규격 | `review.py`: A2UI 모드 전용 검토 화면 생성 |
 | `core/` | LLM 접속 설정과 시작 점검 | 전용 코드 없음 |
 | `data/` | DB 경로와 연결 | 전용 코드 없음 |
-| `eval/` | 정확도·안정성 평가 | 전용 코드 없음 |
 
 공통 기능만 있는 폴더에는 빈 `a2ui/` 폴더를 만들지 않는다. 기존 `app/a2ui/`는 화면 전송 형식 계층이므로 `app/a2ui/a2ui/`처럼 중첩하지 않고 `review.py`로 전용 화면 생성을 구분한다.
 
@@ -38,7 +37,7 @@ app/
     a2ui/
       review.py, schemas.py
   chat/
-    service.py, dispatch.py, turn_router.py, thread_context.py, summary.py
+    service.py, dispatch.py, turn_router.py, thread_context.py
     a2ui/
       review.py
   planning/
@@ -61,7 +60,7 @@ app/
     a2ui/
       surfaces.py, worker.py
   experiment/
-    context.py, interactions.py, store.py, log.py, tasks.py, analysis.py
+    context.py, interactions.py, store.py, log.py, tasks.py
     a2ui/
       interactions.py
   a2ui/
@@ -113,7 +112,7 @@ app/
 
 ## 검증
 
-`uv run pytest tests/execution -q`로 격리된 DB 기반 SQL 실행·검증 테스트를 실행합니다. 실제 LLM 품질 평가는 `eval/`의 별도 평가 범위이며, 평가 원자료는 공개 소스에 포함하지 않습니다.
+`uv run pytest tests/execution -q`로 격리된 DB 기반 SQL 실행·검증 테스트를 실행합니다. 두 연구 과제의 개발용 재실행은 `scripts/validate_task_flows.py`, 등록 지표의 정답 SQL 비교는 `scripts/validate_registered_metrics.py`로 확인합니다. 연구 설문·행동 로그 분석은 `Data/A2UI/`의 노트북에서 수행하며, 원자료는 공개 소스에 포함하지 않습니다.
 
 ## 프론트엔드와 테스트의 전용 폴더
 
@@ -133,7 +132,6 @@ app/
 | [chat/](chat/README.md) | 대화 요청 분류와 문맥 |
 | [core/](core/README.md) | 모델 연결 설정과 시작 점검 |
 | [data/](data/README.md) | 조회 데이터베이스 경로 |
-| [eval/](eval/README.md) | Text-to-SQL 정확도·안정성 평가 |
 | [execution/](execution/README.md) | SQL 생성·검증·실행 |
 | [experiment/](experiment/README.md) | 사용자 실험 진행과 상호작용 기록 |
 | [planning/](planning/README.md) | 분석 계획과 편집 UI 정의 |

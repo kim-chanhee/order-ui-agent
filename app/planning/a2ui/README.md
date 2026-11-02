@@ -7,7 +7,7 @@ Agent2UI 검토 화면 응답을 구성하고 자연어 추가 조건을 계획�
 | 파일 | 역할 |
 |---|---|
 | [models.py](models.py) | A2UI 검토 중 허용되는 추가 조건 수정 패치 모델. |
-| [refinement.py](refinement.py) | A2UI 전용 자연어 추가 조건을 제한된 필터 수정 패치로 반영한다. |
+| [refinement.py](refinement.py) | A2UI 전용 자연어 추가 조건을 서버가 허용한 필드·필터 수정 패치로 반영한다. |
 | [review.py](review.py) | A2UI 전용 검토 화면 응답 조립과 추가 조건 반영을 담당한다. |
 | [validator.py](validator.py) | A2UI 전용 계획 확정 검증과 서버가 허용한 편집 범위 검사. |
 

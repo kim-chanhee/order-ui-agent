@@ -98,6 +98,7 @@ class MetricSpec(StrictModel):
     field: str | None = None
     numerator: str | None = None
     denominator: str | None = None
+    semantic_id: str | None = None
     minimum_sample_size: int | None = Field(default=None, ge=1, le=1_000_000)
 
     @model_validator(mode="after")

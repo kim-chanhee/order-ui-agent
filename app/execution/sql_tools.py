@@ -343,7 +343,12 @@ def make_execute_query_tool(
                 f"{exc}. Revise the selected entity/attributes/result grain and try once more."
             )
         successes.append((validated, columns, row_dicts))
-        formatted = _format_generic_sql_rows(columns, rows)
+        # Model sees a preview; the UI/export still receives every validated row.
+        preview_limit = 20
+        formatted = _format_generic_sql_rows(columns, rows[:preview_limit])
+        if len(rows) > preview_limit:
+            formatted += f"\nModel preview: {preview_limit} of {len(rows)} returned rows; all returned rows are retained for the UI. Do not infer totals from this preview."
+
         if not rows:
             formatted += (
                 "\nValidation warning: the query executed but returned no rows. If the "
@@ -387,49 +392,9 @@ def _validate_execution_sql(
         temporal_context=temporal_context,
         enforce_configured_anchor=enforce_configured_temporal_anchor,
     )
-    validated = validate_confirmed_metric_sql(confirmed_plan, validated)
     return validate_configured_semantics_sql(
         confirmed_plan, validated, temporal_context=temporal_context
     )
-
-
-def validate_confirmed_metric_sql(confirmed_plan: Any | None, sql: str) -> str:
-    """확정 지표가 distinct 건수일 때 안정적인 ID의 COUNT(DISTINCT ...) 사용을 확인한다.
-
-    명시된 물리 ID가 있으면 그 필드를 요구하고 의미 이름이면 *_id 집계를 요구한다.
-    계획이 없거나 검사 대상 지표가 아니면 SQL을 그대로 반환하며 위반 시 ValueError를 발생시킨다.
-    AST 지표 검사에서 기대 필드를 추론하지 못한 경우에도 ID 집계 경계를 유지하므로 별도로 둔다.
-    """
-
-    if confirmed_plan is None:
-        return sql
-    if hasattr(confirmed_plan, "model_dump"):
-        plan = confirmed_plan.model_dump(mode="json")
-    elif isinstance(confirmed_plan, dict):
-        plan = confirmed_plan
-    else:
-        raise TypeError("confirmed_plan must be a mapping or Pydantic model")
-    metric = plan.get("metric") if isinstance(plan, dict) else None
-    if not isinstance(metric, dict) or metric.get("kind") != "count" or metric.get("distinct") is not True:
-        return sql
-    field_name = str(metric.get("field") or "").strip()
-    normalized = re.sub(r'[`"\[\]]', "", sql)
-    physical_identifier = field_name.lower() == "id" or field_name.lower().endswith("_id")
-    target = (
-        re.escape(field_name)
-        if physical_identifier
-        else r"[A-Za-z_][A-Za-z0-9_]*_id"
-    )
-    distinct_count = re.compile(
-        rf"\bCOUNT\s*\(\s*DISTINCT\s+(?:[A-Za-z_][A-Za-z0-9_]*\s*\.\s*)?{target}\s*\)",
-        re.IGNORECASE,
-    )
-    if not distinct_count.search(normalized):
-        required = field_name if physical_identifier else "a stable *_id"
-        raise ValueError(
-            f"confirmed metric requires COUNT(DISTINCT {required}) so relationship-expanded rows do not duplicate the requested unit"
-        )
-    return sql
 
 
 _TABLE_REFERENCE_PATTERN = re.compile(

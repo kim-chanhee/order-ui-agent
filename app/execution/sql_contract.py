@@ -1,11 +1,9 @@
-"""분석 계획과 생성 SQL이 맞는지 SQL 구문 트리(AST)로 검사한다.
+"""분석 계획과 생성 SQL의 일치 검사를 조율한다.
 
-sqlglot으로 단일 SQLite 조회문을 파싱하고 물리 테이블·조건 값·집계 구조를 추출한다.
-검사 대상은 확인된 테이블·컬럼, 지표 종류·건수 단위·비율 나눗셈,
-그룹화·정렬·개수 제한·필터 필드·설정된 업무 조건이다.
-의미 이름을 모든 SQL 표현식에 완전히 대응시키는 검증기는 아니며,
-명시적인 물리 필드와 지원하는 구조·설정에 근거한 검사만 수행한다.
-위반하면 SqlContractViolation의 코드와 상세 사유로 SQL 수정을 유도한다.
+파싱·AST 추출은 sql_ast, 스키마 검사는 sql_schema_contract,
+집계·등록 지표 검사는 sql_metric_contract가 담당한다.
+이 모듈은 계획의 그룹·정렬·개수 제한·필터·설정된 업무 조건을 검사한다.
+기존 호출자를 위해 공개 예외와 AST 유틸리티의 import 경로를 유지한다.
 DB 조회와 변경 차단은 각각 sql_builder와 sql_safety가 담당한다.
 """
 
@@ -13,95 +11,32 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any
 
-from sqlglot import exp, parse
-from sqlglot.errors import ParseError
+from sqlglot import exp
 
 from app.execution.analysis_semantics import load_analysis_semantics
+from app.execution.join_contract import validate_join_roles
+from app.execution.registered_metrics import compile_registered_metric
+from app.execution.sql_ast import (
+    SqlContractViolation,
+    extract_filter_literals,
+    extract_physical_tables,
+    parse_sql_ast,
+    physical_tables_from_tree,
+)
+from app.execution.sql_metric_contract import validate_metrics, validate_semantic_metrics
+from app.execution.sql_schema_contract import validate_schema_references
 
+__all__ = [
+    "SqlContractViolation",
+    "extract_filter_literals",
+    "extract_physical_tables",
+    "parse_sql_ast",
+    "validate_sql_contract",
+]
 
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-_TEMPORAL_MODIFIER = re.compile(
-    r"^[+-]?\d+\s+(?:day|days|week|weeks|month|months|year|years)$",
-    re.IGNORECASE,
-)
-_SCHEMA_HEADER = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\((.*)\)$")
-
-
-@dataclass(frozen=True)
-class SqlContractViolation(ValueError):
-    """계획과 SQL의 불일치를 안정적인 오류 코드와 상세 내용으로 표현한다.
-
-    실행 도구와 실패 분류기가 위반 종류를 구분하고 LLM이 수정하도록 전달하는 예외다.
-    """
-
-    code: str
-    detail: str
-
-    def __str__(self) -> str:
-        """계약 오류를 코드와 상세 사유가 함께 보이는 문자열로 반환한다.
-
-        도구 응답과 로그에서 오류 종류를 식별하기 쉽게 한다.
-        """
-
-        return f"[{self.code}] {self.detail}"
-
-
-def parse_sql_ast(sql: str) -> exp.Query:
-    """SQLite 문법으로 SQL을 파싱하고 정확히 하나의 조회문인지 확인한다.
-
-    문법 오류·여러 문장·조회문이 아닌 입력은 SqlContractViolation으로 보고한다.
-    """
-
-    try:
-        statements = [statement for statement in parse(sql, read="sqlite") if statement]
-    except ParseError as exc:
-        raise SqlContractViolation("sql_parse_error", f"SQLite SQL parse failed: {exc}") from exc
-    if len(statements) != 1:
-        raise SqlContractViolation("statement_count", "SQL must contain exactly one statement")
-    tree = statements[0]
-    if not isinstance(tree, exp.Query):
-        raise SqlContractViolation("not_a_query", "Only a SELECT/WITH query is allowed")
-    return tree
-
-
-def extract_physical_tables(sql: str) -> set[str]:
-    """단일 SQL의 구문 트리에서 실제 테이블 이름을 모은다.
-
-    WITH절의 CTE 이름은 임시 참조이므로 실제 테이블 목록에서 제외한다.
-    """
-
-    tree = parse_sql_ast(sql)
-    cte_names = {cte.alias_or_name.casefold() for cte in tree.find_all(exp.CTE)}
-    return {
-        table.name
-        for table in tree.find_all(exp.Table)
-        if table.name and table.name.casefold() not in cte_names
-    }
-
-
-def extract_filter_literals(sql: str) -> list[str]:
-    """구문 트리의 실제 조건식에 참여하는 문자열 값을 중복 없이 추출한다.
-
-    LIKE 양끝 와일드카드와 날짜 이동 수식은 정리·제외하며 주석과 단순 출력 상수는 조건 근거로 보지 않는다.
-    """
-
-    tree = parse_sql_ast(sql)
-    values: list[str] = []
-    for predicate in tree.find_all(exp.Predicate):
-        for literal in predicate.find_all(exp.Literal):
-            if not literal.is_string:
-                continue
-            value = str(literal.this).replace("''", "'").strip()
-            if isinstance(predicate, (exp.Like, exp.ILike)):
-                value = value.strip("%_").strip()
-            if not value or _TEMPORAL_MODIFIER.fullmatch(value):
-                continue
-            if value not in values:
-                values.append(value)
-    return values
 
 
 def validate_sql_contract(
@@ -118,14 +53,21 @@ def validate_sql_contract(
     """
 
     tree = parse_sql_ast(sql)
+    validate_join_roles(tree)
     if schema_context:
-        _validate_schema_references(tree, schema_context)
+        validate_schema_references(tree, schema_context)
     plan = _as_mapping(confirmed_plan)
     if not plan:
         return sql
+    compiled = compile_registered_metric(plan)
+    if compiled is not None:
+        if tree.sql(dialect='sqlite', normalize=True) != parse_sql_ast(compiled).sql(dialect='sqlite', normalize=True):
+            raise SqlContractViolation('registered_metric_query', 'Use the compiled registered population/subset query without changing its filters, joins or denominator')
+        return sql
 
     metrics = _plan_metrics(plan)
-    _validate_metrics(tree, metrics)
+    validate_metrics(tree, metrics)
+    validate_semantic_metrics(tree, metrics)
     _validate_grouping(tree, plan)
     _validate_sort_and_limit(tree, plan)
     _validate_explicit_filters(tree, plan)
@@ -170,125 +112,6 @@ def _plan_metrics(plan: dict[str, Any]) -> list[dict[str, Any]]:
     return unique
 
 
-def _validate_metrics(tree: exp.Query, metrics: list[dict[str, Any]]) -> None:
-    """최종 출력 표현식에 계획이 요구하는 집계 종류·개수·DISTINCT·건수 단위가 있는지 검사한다.
-
-    비율 지표에는 나눗셈 표현식을 요구하고, 유틸리티 CTE 안의 집계만으로 출력 지표를 충족했다고 보지 않는다.
-    """
-
-    aggregate_types: dict[str, type[exp.AggFunc]] = {
-        "count": exp.Count,
-        "sum": exp.Sum,
-        "avg": exp.Avg,
-        "min": exp.Min,
-        "max": exp.Max,
-    }
-    # Only aggregates reachable from the final projection satisfy an output
-    # metric. Anchor/utility CTE aggregates must not count as requested results.
-    output_projections = list(tree.selects)
-    aggregate_nodes = [
-        node
-        for projection in output_projections
-        for node in projection.find_all(exp.AggFunc)
-    ]
-    required_aggregates = [metric for metric in metrics if metric.get("kind") in aggregate_types]
-    if len(aggregate_nodes) < len(required_aggregates):
-        raise SqlContractViolation(
-            "metric_projection_mismatch",
-            f"confirmed plan requires {len(required_aggregates)} aggregate projection(s), but SQL has {len(aggregate_nodes)}",
-        )
-
-    used: set[int] = set()
-    for metric in required_aggregates:
-        kind = str(metric.get("kind"))
-        candidates = [
-            node
-            for node in aggregate_nodes
-            if isinstance(node, aggregate_types[kind]) and id(node) not in used
-        ]
-        if kind == "count" and metric.get("distinct") is True:
-            candidates = [node for node in candidates if isinstance(node.this, exp.Distinct)]
-        expected_fields = _expected_metric_fields(metric)
-        if expected_fields:
-            field_bound = [node for node in candidates if _aggregate_matches_any_field(node, expected_fields)]
-            if field_bound:
-                candidates = field_bound
-            elif kind == "count":
-                rendered = ", ".join(sorted(expected_fields))
-                raise SqlContractViolation(
-                    "count_unit_mismatch",
-                    f"confirmed count unit must use COUNT(DISTINCT {rendered}); a generic event/row id is not equivalent",
-                )
-        if not candidates:
-            distinct = "DISTINCT " if metric.get("distinct") is True else ""
-            raise SqlContractViolation(
-                "missing_metric",
-                f"confirmed metric requires {kind.upper()}({distinct}...) in the SQL AST",
-            )
-        used.add(id(candidates[0]))
-
-    for metric in metrics:
-        if metric.get("kind") == "ratio" and not any(
-            projection.find(exp.Div) for projection in output_projections
-        ):
-            raise SqlContractViolation(
-                "missing_ratio",
-                "confirmed ratio metric requires an explicit numerator/denominator division",
-            )
-
-
-def _expected_metric_fields(metric: dict[str, Any]) -> set[str]:
-    """지표의 field·unit에서 집계에 사용할 것으로 기대되는 식별자 후보를 만든다.
-
-    명시된 ID를 우선하고 업무 의미 설정·일반 엔터티 명칭·영문 토큰 규칙으로 후보를 보충한다.
-    반환값은 스키마 존재를 증명하는 값이 아니라 집계 단위 검사에 쓰는 기대 필드 집합이다.
-    """
-
-    field = str(metric.get("field") or "").strip().casefold()
-    unit = str(metric.get("unit") or "").strip().casefold()
-    if _IDENTIFIER.fullmatch(field) and (field == "id" or field.endswith("_id")):
-        return {field}
-
-    text = f"{field} {unit}"
-    expected: set[str] = set()
-    semantics = load_analysis_semantics()
-    for entity, raw in (semantics.get("entity_lifecycles") or {}).items():
-        if not isinstance(raw, dict):
-            continue
-        terms = [str(entity), *[str(term) for term in raw.get("semantic_terms", [])]]
-        if any(_contains_term(text, term.casefold()) for term in terms):
-            identifier = str(raw.get("id_field") or "").casefold()
-            if _IDENTIFIER.fullmatch(identifier):
-                expected.add(identifier)
-
-    common_entities = {
-        "order": ("order", "orders", "주문"),
-        "customer": ("customer", "customers", "고객"),
-        "event": ("event", "events", "이벤트", "건"),
-        "item": ("item", "items", "물품", "상품"),
-        "product": ("product", "products", "제품"),
-        "shipment": ("shipment", "shipments", "배송"),
-    }
-    for physical, terms in common_entities.items():
-        if any(_contains_term(text, term) for term in terms):
-            expected.add(f"{physical}_id")
-    if not expected and field:
-        words = re.findall(r"[a-z][a-z0-9_]*", field)
-        if words:
-            token = words[-1].removesuffix("s")
-            expected.add(f"{token}_id")
-    return expected
-
-
-def _aggregate_matches_any_field(node: exp.AggFunc, fields: set[str]) -> bool:
-    """집계 표현식이 기대 식별자 집합 중 하나를 참조하는지 확인한다.
-
-    컬럼 이름의 대소문자를 무시해 비교한다.
-    """
-
-    return any(column.name.casefold() in fields for column in node.find_all(exp.Column))
-
-
 def _validate_grouping(tree: exp.Query, plan: dict[str, Any]) -> None:
     """계획에 그룹 기준이 있으면 SQL에 GROUP BY가 있는지 확인한다.
 
@@ -301,6 +124,13 @@ def _validate_grouping(tree: exp.Query, plan: dict[str, Any]) -> None:
     groups = [group for select in tree.find_all(exp.Select) for group in select.args.get("group", exp.Group()).expressions]
     if not groups:
         raise SqlContractViolation("missing_group_by", "confirmed plan requires GROUP BY")
+    aliases = {p.alias: p.this for select in tree.find_all(exp.Select) for p in select.expressions if isinstance(p,exp.Alias)}
+    for bucket, fmt in {'day':'%Y-%m-%d','month':'%Y-%m','year':'%Y'}.items():
+        if bucket not in required: continue
+        expressions = [aliases.get(g.name,g) if isinstance(g,exp.Column) and not g.table else g for g in groups]
+        if not any(isinstance(f,exp.TimeToStr) and str(f.args.get('format').this) == fmt and list(f.find_all(exp.Column))
+                   for g in expressions for f in g.find_all(exp.TimeToStr)):
+            raise SqlContractViolation('temporal_group_mismatch',f'{bucket} grouping requires a real date bucket {fmt}')
     group_text = " ".join(group.sql(dialect="sqlite").casefold() for group in groups)
     for field in required:
         if _looks_physical_field(field) and field.casefold() not in group_text:
@@ -353,7 +183,7 @@ def _validate_explicit_filters(tree: exp.Query, plan: dict[str, Any]) -> None:
         if not isinstance(filter_spec, dict):
             continue
         field = str(filter_spec.get("field") or "").strip()
-        if not _looks_physical_field(field):
+        if not _IDENTIFIER.fullmatch(field):
             continue
         matching = [
             predicate
@@ -362,6 +192,36 @@ def _validate_explicit_filters(tree: exp.Query, plan: dict[str, Any]) -> None:
         ]
         if not matching:
             raise SqlContractViolation("missing_filter", f"SQL is missing confirmed filter field {field!r}")
+        if not any(_matches_filter(predicate, filter_spec) for predicate in matching):
+            raise SqlContractViolation('filter_value_mismatch', f'SQL must preserve the confirmed operator and value for {field!r}')
+
+
+def _matches_filter(predicate, spec):
+    """Match literal predicates; unsupported expressions fail closed."""
+    field, operator, value = spec['field'], spec['operator'], spec.get('value')
+    def column(node):
+        return isinstance(node, exp.Column) and node.name.casefold() == field.casefold()
+    def literal(node, expected):
+        if not isinstance(node, (exp.Literal, exp.Boolean, exp.Null)):
+            return False
+        try:
+            return node.to_py() == expected or (isinstance(expected,(int,float)) and float(node.to_py()) == expected)
+        except (ValueError,TypeError):
+            return False
+    pairs = {'eq':exp.EQ,'neq':exp.NEQ,'gt':exp.GT,'gte':exp.GTE,'lt':exp.LT,'lte':exp.LTE}
+    if operator in pairs and isinstance(predicate,pairs[operator]):
+        if column(predicate.this) and literal(predicate.expression,value):
+            return True
+        return operator in {'eq','neq'} and column(predicate.expression) and literal(predicate.this,value)
+    if operator in {'in','not_in'} and isinstance(predicate,exp.In) and column(predicate.this) and isinstance(value,list):
+        negated=isinstance(predicate.parent,exp.Not)
+        return negated == (operator=='not_in') and len(predicate.expressions)==len(value) and all(
+            any(literal(node,wanted) for node in predicate.expressions) for wanted in value)
+    if operator=='between' and isinstance(predicate,exp.Between) and column(predicate.this) and isinstance(value,list) and len(value)==2:
+        return literal(predicate.args.get('low'),value[0]) and literal(predicate.args.get('high'),value[1])
+    if operator=='contains' and isinstance(predicate,exp.Like) and column(predicate.this):
+        return literal(predicate.expression,'%'+str(value)+'%')
+    return False
 
 
 def _validate_configured_predicates(
@@ -376,7 +236,7 @@ def _validate_configured_predicates(
 
     semantics = load_analysis_semantics()
     semantic_text = json.dumps(plan, ensure_ascii=False).casefold()
-    tables = {table.casefold() for table in _physical_tables_from_tree(tree)}
+    tables = {table.casefold() for table in physical_tables_from_tree(tree)}
     mode = _temporal_mode(plan, temporal_context)
     if mode in {"relative", "preset"}:
         for entity, raw in (semantics.get("entity_lifecycles") or {}).items():
@@ -448,73 +308,6 @@ def _validate_configured_predicates(
                     "missing_relationship_predicate",
                     f"direct relationship requires a real AST predicate {table}.{field} = {value!r}",
                 )
-
-
-def _validate_schema_references(tree: exp.Query, schema_context: str) -> None:
-    """조회에 쓰인 테이블·컬럼을 도구가 확인한 라이브 스키마 설명과 대조한다.
-
-    CTE와 출력 별칭은 구분하고 존재하지 않는 물리 이름은 계약 오류로 보고한다.
-    """
-
-    schema = _schema_from_context(schema_context)
-    if not schema:
-        return
-    cte_names = {cte.alias_or_name.casefold() for cte in tree.find_all(exp.CTE)}
-    aliases: dict[str, str] = {}
-    for table in tree.find_all(exp.Table):
-        if table.name.casefold() in cte_names:
-            continue
-        name = table.name.casefold()
-        aliases[(table.alias_or_name or table.name).casefold()] = name
-        if name not in schema:
-            raise SqlContractViolation("unknown_table", f"table {table.name!r} was not found in inspected live schema")
-    projection_aliases = {
-        projection.alias.casefold()
-        for select in tree.find_all(exp.Select)
-        for projection in select.expressions
-        if projection.alias
-    }
-    all_columns = set().union(*schema.values()) if schema else set()
-    for column in tree.find_all(exp.Column):
-        name = column.name.casefold()
-        qualifier = column.table.casefold()
-        if qualifier in cte_names or name in projection_aliases:
-            continue
-        if qualifier and qualifier in aliases:
-            if name not in schema[aliases[qualifier]]:
-                raise SqlContractViolation("unknown_column", f"column {column.sql()!r} was not found in inspected live schema")
-        elif not qualifier and name not in all_columns:
-            raise SqlContractViolation("unknown_column", f"column {column.name!r} was not found in inspected live schema")
-
-
-def _schema_from_context(context: str) -> dict[str, set[str]]:
-    """스키마 설명 중 table(column type, ...) 형태의 줄을 읽어 테이블별 컬럼 집합으로 만든다.
-
-    다른 설명 줄은 무시하고 이름은 비교하기 쉽게 소문자로 정리한다.
-    """
-
-    schema: dict[str, set[str]] = {}
-    for raw_line in context.splitlines():
-        match = _SCHEMA_HEADER.fullmatch(raw_line.strip())
-        if not match:
-            continue
-        columns = {
-            part.strip().split()[0].strip('"`[]').casefold()
-            for part in match.group(2).split(",")
-            if part.strip()
-        }
-        schema[match.group(1).casefold()] = columns
-    return schema
-
-
-def _physical_tables_from_tree(tree: exp.Query) -> set[str]:
-    """이미 파싱한 구문 트리에서 CTE를 제외한 물리 테이블 집합을 반환한다.
-
-    업무 관계가 요구하는 테이블의 포함 여부를 검사할 때 재사용한다.
-    """
-
-    cte_names = {cte.alias_or_name.casefold() for cte in tree.find_all(exp.CTE)}
-    return {table.name for table in tree.find_all(exp.Table) if table.name.casefold() not in cte_names}
 
 
 def _has_equality_predicate(tree: exp.Query, field: str, value: str) -> bool:

@@ -69,3 +69,14 @@ class RefineDraftResponse(BaseModel):
     surface_id: str
     plan_id: str
     revision: int
+
+
+class UpdateDraftRequest(BaseModel):
+    """카드 편집 값을 검증·저장한다. 분석은 실행하지 않는다."""
+
+    question: str = Field(min_length=1)
+    plan: UiPlan
+    surface_id: str = Field(min_length=1)
+    plan_id: str = Field(min_length=1)
+    revision: int = Field(ge=1)
+    supported_components: list[str] = Field(default_factory=list)

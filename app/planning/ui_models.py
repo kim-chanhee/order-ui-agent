@@ -29,8 +29,8 @@ ConditionOperator = Literal["eq", "neq", "contains", "not_contains", "in", "exis
 _EDITABLE_PLAN_PATH = re.compile(
     r"^(?:date_range(?:\.(?:mode|preset|relative_days|date_from|date_to))?"
     r"|event_types(?:\[\d+\]|\.\d+)?|target_conditions(?:\[\d+\]|\.\d+)?"
-    r"|metric(?:\.(?:kind|unit|distinct|field|numerator|denominator|minimum_sample_size))?"
-    r"|metrics(?:\[\d+\]|\.\d+)?(?:\.(?:kind|unit|distinct|field|numerator|denominator|minimum_sample_size))?"
+    r"|metric(?:\.(?:kind|unit|distinct|field|numerator|denominator|semantic_id|minimum_sample_size))?"
+    r"|metrics(?:\[\d+\]|\.\d+)?(?:\.(?:kind|unit|distinct|field|numerator|denominator|semantic_id|minimum_sample_size))?"
     r"|group_by(?:\[\d+\]|\.\d+)?|filters(?:\[\d+\]|\.\d+)?(?:\.(?:field|operator|value|source))?"
     r"|comparison|sort(?:\[\d+\]|\.\d+)?(?:\.(?:field|direction))?|limit"
     r"|output(?:\.(?:view|fields(?:\[\d+\]|\.\d+)?|include_summary))?)$"
@@ -118,9 +118,9 @@ class UiBlock(StrictModel):
     def reject_executable_props(cls, value: dict[str, Any]) -> dict[str, Any]:
         """UI 속성에 HTML·스크립트·이벤트 핸들러 등 금지된 실행 관련 키가 있으면 거부한다."""
 
-        forbidden = {"html", "javascript", "script", "onchange", "onclick", "eval"}
+        forbidden = {"html", "javascript", "script", "onchange", "onclick", "eval", "value", "selected", "default", "default_value", "defaultvalue", "checked"}
         if forbidden.intersection(str(key).lower() for key in value):
-            raise ValueError("UI props may not contain executable content")
+            raise ValueError("UI props may not contain executable content or duplicate AnalysisPlan selected values")
         return value
 
 
@@ -160,7 +160,8 @@ class DynamicPlannerOutput(StrictModel):
     """LLM 계획 생성 결과인 분석 계획·UI 블록·누락 입력·추천 조건·경고를 묶는다."""
 
     analysis_plan: AnalysisPlan
-    ui_blocks: list[UiBlock] = Field(default_factory=list, max_length=12)
+    ui_blocks: list[UiBlock] = Field(default_factory=list, max_length=64)
+    ui_state: dict[str, Any] = Field(default_factory=dict)
     missing_fields: list[str] = Field(default_factory=list)
     field_metadata: dict[str, FieldMetadata] = Field(default_factory=dict)
     suggested_constraints: list[SuggestedConstraint] = Field(default_factory=list, max_length=4)

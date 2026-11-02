@@ -25,6 +25,7 @@ def build_schema_review_plan(
     *,
     previous_plan: AnalysisPlan | None = None,
     context_candidates: list[PlannerContextCandidate] | None = None,
+    include_ui: bool = True,
 ) -> UiPlan:
     """동적 계획 생성 결과를 상속 정보와 참조 정보를 포함한 편집용 UiPlan으로 변환한다."""
 
@@ -32,11 +33,13 @@ def build_schema_review_plan(
         question.strip(),
         previous_plan=previous_plan,
         context_candidates=context_candidates,
+        include_ui=include_ui,
     )
     return UiPlan(
         summary=output.summary,
         analysis_plan=output.analysis_plan,
         ui_state={
+            **output.ui_state,
             "additional_constraint": "",
             "inherited_fields": [
                 field
@@ -58,12 +61,13 @@ def build_schema_review_plan(
     )
 
 
-def build_review_plan(question: str, thread_id: str, *, context_records: list[dict] | None = None) -> UiPlan:
+def build_review_plan(question: str, thread_id: str, *, context_records: list[dict] | None = None, include_ui: bool = True) -> UiPlan:
     """대화의 이전 분석 후보를 수집해 현재 질문의 확인용 계획을 생성한다."""
 
     return build_schema_review_plan(
         question,
         context_candidates=_thread_analysis_context_candidates(thread_id, records=context_records),
+        include_ui=include_ui,
     )
 
 
@@ -99,24 +103,3 @@ def _thread_analysis_context_candidates(thread_id: str | None, *, records: list[
         except (KeyError, TypeError, ValueError):
             continue
     return candidates[-CONTEXT_HISTORY_LIMIT:]
-
-
-def _latest_thread_analysis_plan(thread_id: str | None) -> AnalysisPlan | None:
-    """SQL이 기록된 대화 결과를 최신순으로 살펴보고 유효한 첫 분석 계획을 반환한다."""
-
-    for record in reversed(get_thread_results(thread_id)):
-        normalized = record.get("normalized_spec") or {}
-        execution = normalized.get("analysis_execution") or {}
-        if not execution.get("sql"):
-            continue
-        candidate = normalized.get("analysis_plan")
-        if not isinstance(candidate, dict):
-            confirmed = normalized.get("confirmed_context") or {}
-            candidate = confirmed.get("confirmed_plan") if isinstance(confirmed, dict) else None
-        if not isinstance(candidate, dict):
-            continue
-        try:
-            return AnalysisPlan.model_validate(candidate)
-        except ValueError:
-            continue
-    return None

@@ -1,6 +1,6 @@
 // 두 모드의 결과 텍스트·안내와, text 타입의 계획 입력 위임을 담당한다.
-import { renderTextInput } from "./a2ui/inputs.js?v=plan-sentence-redesign";
-import { createElement, createMarkdownParagraph } from "../utils.js?v=plan-sentence-redesign";
+import { renderTextInput } from "./a2ui/inputs.js?v=dynamic-blueprint-v1";
+import { createElement, createMarkdownParagraph } from "../utils.js?v=dynamic-blueprint-v1";
 
 export function renderTextComponent(block, context) {
   if (context.surfaceType === "result") {

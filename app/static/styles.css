@@ -549,6 +549,14 @@ button:disabled {
   box-shadow: var(--shadow-sm);
 }
 
+.msg.bot.result-message {
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  scroll-margin-top: var(--space-4);
+}
+
 .msg.error {
   align-self: flex-start;
   background: var(--danger-soft);
@@ -880,6 +888,8 @@ button:disabled {
 .result-table .numeric {
   text-align: right;
   font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--text);
 }
 
 .result-chart {
@@ -898,15 +908,21 @@ button:disabled {
 
 .chart-row {
   display: grid;
-  grid-template-columns: minmax(96px, 160px) 1fr minmax(56px, auto);
+  grid-template-columns: minmax(120px, 1.2fr) minmax(60px, 2fr) minmax(56px, auto);
   gap: var(--space-3);
   align-items: center;
 }
 
 .chart-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.chart-track {
+  display: block;
+  min-width: 0;
+  background: var(--border);
+  border-radius: 999px;
 }
 
 .chart-bar {
@@ -919,6 +935,9 @@ button:disabled {
 .chart-value {
   text-align: right;
   font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
 }
 
 .result-meta {
@@ -936,7 +955,8 @@ button:disabled {
 .survey-grid,
 .card .grid { grid-template-columns: 1fr; }
 
-.chart-row { grid-template-columns: 1fr; }
+.chart-row { grid-template-columns: minmax(0, 1fr) auto; }
+.chart-label { grid-column: 1 / -1; }
 
 .msg { max-width: 100%; }
 

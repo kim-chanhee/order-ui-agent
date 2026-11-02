@@ -1,9 +1,9 @@
 // A2UI 전용 계획 화면을 편집 상태와 연결하고 확인·수정 동작을 설치한다.
-import { renderPlanCard } from "./plan/plan-renderer.js?v=plan-sentence-redesign";
-import { normalizeUiPlan } from "./plan/plan-normalizer.js?v=plan-sentence-redesign";
+import { renderPlanCard } from "./plan/plan-renderer.js?v=dynamic-blueprint-v1";
+import { normalizeUiPlan } from "./plan/plan-normalizer.js?v=dynamic-blueprint-v1";
 import { validateSurface } from "../surfaces/validation.js";
-import { reviewState } from "./state.js?v=plan-sentence-redesign";
-import { clone } from "../utils.js?v=plan-sentence-redesign";
+import { reviewState } from "./state.js?v=dynamic-blueprint-v1";
+import { clone } from "../utils.js?v=dynamic-blueprint-v1";
 
 export function uiBlockFromSurfaceComponent(component) {
   return {
@@ -36,25 +36,33 @@ export function uiPlanFromSurface(surface) {
   });
 }
 
-export function installPlanSurface(surface) {
+export function installPlanSurface(surface, { resetInitial = false } = {}) {
   const currentSurface = clone(validateSurface(surface));
   const uiPlan = uiPlanFromSurface(currentSurface);
   currentSurface.data_model.analysis_plan = uiPlan.analysis_plan;
   currentSurface.data_model.ui_state = uiPlan.ui_state;
   uiPlan.analysis_plan = currentSurface.data_model.analysis_plan;
   uiPlan.ui_state = currentSurface.data_model.ui_state;
+  const samePlan = reviewState.currentSurface?.plan_id === currentSurface.plan_id;
   reviewState.currentSurface = currentSurface;
-  reviewState.rawUiPlan = null;
   reviewState.currentUiPlan = uiPlan;
   reviewState.currentPlan = currentSurface.data_model.analysis_plan;
-  reviewState.initialPlanSnapshot = clone(currentSurface.data_model.analysis_plan);
+  if (resetInitial || !samePlan) reviewState.initialPlanSnapshot = clone(currentSurface.data_model.analysis_plan);
+  reviewState.savedPlanSnapshot = clone(currentSurface.data_model.analysis_plan);
   return uiPlan;
 }
 
 export function renderPlanSurface(container, surface, handlers = {}) {
-  const uiPlan = installPlanSurface(surface);
+  installPlanSurface(surface);
+  return renderInstalledPlan(container, handlers);
+}
+
+export function renderInstalledPlan(container, handlers = {}) {
+  const surface = reviewState.currentSurface;
+  const uiPlan = reviewState.currentUiPlan;
   const actionTypes = new Set((surface.actions || []).map((action) => action?.action_type));
   renderPlanCard(container, uiPlan, {
+    onSave: actionTypes.has("edit_plan") ? handlers.onSave : undefined,
     onConfirm: actionTypes.has("confirm_plan") ? handlers.onConfirm : undefined,
     onCancel: actionTypes.has("cancel_run") ? handlers.onCancel : undefined,
     onRefine: actionTypes.has("refine_plan") ? handlers.onRefine : undefined,

@@ -30,6 +30,7 @@ def run_startup_checks() -> dict[str, Any]:
         "state_store": _check_state_store(),
         "experiment_store": _check_experiment_store(),
         "environment": _check_environment(),
+        "semantics": _check_semantics(),
     }
     failed = {name: value for name, value in checks.items() if value.get("status") != "ok"}
     if failed:
@@ -45,6 +46,7 @@ def health_status() -> dict[str, Any]:
         "database": _check_database,
         "state_store": _check_state_store,
         "experiment_store": _check_experiment_store,
+        "semantics": _check_semantics,
     }.items():
         try:
             checks[name] = func()
@@ -103,6 +105,46 @@ def _check_environment() -> dict[str, Any]:
     except (RuntimeError, ValueError) as exc:
         raise StartupCheckError(str(exc)) from exc
     return {"status": "ok", "agent_provider": provider}
+
+
+def _check_semantics() -> dict[str, Any]:
+    """Reject stale or mistyped physical metadata when selecting a new DB."""
+    import json
+    import os
+    from app.execution.analysis_semantics import analysis_semantics_path
+    path = analysis_semantics_path()
+    if not path.exists() and not os.environ.get('ANALYSIS_SEMANTICS_PATH'):
+        return {'status':'ok', 'configured':False}
+    try:
+        config = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError) as exc:
+        raise StartupCheckError('analysis semantics must be readable JSON') from exc
+    if not isinstance(config, dict):
+        raise StartupCheckError('analysis semantics must be a JSON object')
+    with closing(create_read_only_connection(DEFAULT_DB_PATH)) as conn:
+        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type IN ('table','view')")]
+        schema = {t:{r[1] for r in conn.execute('PRAGMA table_info("'+t.replace('"','""')+'")')}
+                  for t in tables}
+    checks = []
+    if config.get('timeline_anchor'):
+        checks.append((config['timeline_anchor'].get('table'), config['timeline_anchor'].get('field')))
+    for role in config.get('column_roles', []):
+        checks.append((role.get('table'), role.get('field')))
+        if role.get('discriminator'):
+            checks.append((role.get('table'), role['discriminator']))
+    for lifecycle in config.get('entity_lifecycles', {}).values():
+        for key in ('id_field','time_field','creation_field'):
+            checks.append((lifecycle.get('table'), lifecycle.get(key)))
+    for definition in config.get('semantic_metrics', {}).values():
+        for source in (definition.get('population'), definition.get('subset')):
+            if not source:
+                continue
+            for field in (source.get('key'), source.get('time_field'), *source.get('filters', {})):
+                checks.append((source.get('table'), field))
+    for table, field in checks:
+        if not table or not field or field not in schema.get(table, set()):
+            raise StartupCheckError(f'analysis semantics references missing field: {table}.{field}')
+    return {'status':'ok', 'configured':True, 'verified_fields':len(checks)}
 
 
 def _safe_message(exc: Exception) -> str:

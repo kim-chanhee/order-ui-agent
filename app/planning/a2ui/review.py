@@ -2,18 +2,18 @@
 
 주요 기능:
     - 확인 화면을 생성·저장하고 답변·계획·화면 데이터를 함께 반환한다.
-    - 추가 조건의 중복을 확인하고 실제 필터가 바뀐 경우 조건 이력에 반영한다.
+    - 추가 조건의 중복을 확인하고 실제 분석 조건이 바뀐 경우 조건 이력에 반영한다.
     - 수정 결과의 필수 입력과 조회 불가 사유를 현재 계획에 맞춰 갱신한다.
 """
 
-from app.a2ui.review import review_answer, surface_for_plan
+from app.a2ui.review import surface_for_plan
 from app.planning.a2ui.refinement import refine_dynamic_analysis
 from app.planning.ui_models import UiPlan
 from app.planning.validator import compute_missing_fields
 from app.routes.schemas import ChatRequest
 
 
-def plan_response_parts(plan: UiPlan, payload: ChatRequest, thread_id: str) -> tuple[str, dict, dict]:
+def plan_response_parts(plan: UiPlan, payload: ChatRequest, thread_id: str) -> tuple[dict, dict]:
     """클라이언트 지원 컴포넌트로 확인 화면을 만들고 안내 답변·식별 정보가 포함된 계획·화면을 반환한다."""
 
     surface = surface_for_plan(
@@ -28,7 +28,7 @@ def plan_response_parts(plan: UiPlan, payload: ChatRequest, thread_id: str) -> t
         plan_id=surface["plan_id"],
         revision=surface["revision"],
     )
-    return review_answer(plan), plan_payload, surface
+    return plan_payload, surface
 
 
 def refine_review_plan(
@@ -41,43 +41,34 @@ def refine_review_plan(
 
     constraint = " ".join(additional_constraint.split())
     prior_constraints = _normalized_constraints(plan.ui_state.get("additional_constraints", []))
-    if constraint.casefold() in {item.casefold() for item in prior_constraints}:
-        return UiPlan(
-            summary="이미 적용된 추가 조건입니다.",
-            analysis_plan=plan.analysis_plan.model_copy(deep=True),
-            ui_state={**plan.ui_state, "additional_constraint": "", "additional_constraints": prior_constraints},
-            ui_blocks=plan.ui_blocks,
-            missing_fields=compute_missing_fields(plan.analysis_plan, plan.ui_blocks),
-            suggested_constraints=plan.suggested_constraints,
-            infeasible=_carry_infeasible(plan.infeasible, plan.analysis_plan.unresolved_constraints),
-            warnings=plan.warnings,
-        )
     output = refine_dynamic_analysis(
         question,
         plan.analysis_plan,
         plan.ui_blocks,
         constraint,
+        catalog=plan.ui_state.get("semantic_catalog"),
     )
     ui_blocks = output.ui_blocks or plan.ui_blocks
     analysis_plan = output.analysis_plan
-    filters_changed = (
-        [item.model_dump(mode="json") for item in analysis_plan.filters]
-        != [item.model_dump(mode="json") for item in plan.analysis_plan.filters]
-    )
-    constraints = _normalized_constraints([*prior_constraints, constraint] if filters_changed else prior_constraints)
+    ignored = {"source", "confidence", "field_metadata"}
+    changed = analysis_plan.model_dump(exclude=ignored) != plan.analysis_plan.model_dump(exclude=ignored)
+    applied = changed and not analysis_plan.unresolved_constraints
+    constraints = _normalized_constraints([*prior_constraints, constraint] if applied else prior_constraints)[-20:]
     return UiPlan(
         summary=output.summary,
         analysis_plan=analysis_plan,
         ui_state={
             **plan.ui_state,
-            "additional_constraint": "" if filters_changed else constraint,
+            **output.ui_state,
+            "additional_constraint": "" if applied else constraint,
             "additional_constraints": constraints,
+            "refinement_applied": applied,
         },
         ui_blocks=ui_blocks,
         missing_fields=compute_missing_fields(analysis_plan, ui_blocks),
         suggested_constraints=output.suggested_constraints or plan.suggested_constraints,
         infeasible=output.infeasible or _carry_infeasible(plan.infeasible, analysis_plan.unresolved_constraints),
-        warnings=output.warnings,
+        warnings=output.warnings if changed else [*output.warnings, "조건이 바뀌지 않았습니다. 변경할 값을 구체적으로 입력해 주세요."],
     )
 
 

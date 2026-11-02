@@ -27,7 +27,7 @@ export const DIMENSION_LABELS = {
   customer_id: "고객별", courier_id: "배송 기사별", shipper_id: "배송 기사별",
   employee_id: "직원별", product_id: "상품별", item_id: "물품별",
   order_id: "주문별", package_id: "패키지별", event_id: "이벤트별",
-  event_type: "이벤트 유형별", status: "상태별", day: "일자별",
+  event_type: "이벤트 유형별", status: "상태별", day: "일자별", month: "월별", year: "연도별",
 };
 
 export function dimensionLabel(value) {
@@ -63,12 +63,6 @@ export const COUNT_FIELD_LABELS = {
   package_id: "패키지", customer_id: "고객", courier_id: "배송 기사",
   shipper_id: "배송 기사", employee_id: "직원",
 };
-
-export function countFieldLabel(value) {
-  if (!value) return "항목";
-  const key = String(value).trim().toLowerCase();
-  return COUNT_FIELD_LABELS[key] || unitLabel(value);
-}
 
 const PRESET_LABELS = {
   last_7_days: "최근 7일", last_14_days: "최근 14일", last_30_days: "최근 30일",
@@ -108,7 +102,7 @@ export function metricNounPhrase(metric = {}) {
     if (/[율률]$/.test(named)) return named; // planner-named, e.g. "배송 실패율"
     const n = COUNT_FIELD_LABELS[String(metric.numerator || "").trim().toLowerCase()];
     const d = COUNT_FIELD_LABELS[String(metric.denominator || "").trim().toLowerCase()];
-    if (n && d) return `${n} 대비 ${d} 비율`;
+    if (n && d) return `${d} 대비 ${n} 비율`;
     const kw = ratioKeyword(metric.numerator);
     return kw ? `${kw}율` : "비율";
   }
@@ -175,9 +169,4 @@ export function josaIGa(word) {
 
 export function josaWaGwa(word) {
   return jongseong(word) > 0 ? "과" : "와";
-}
-
-export function josaEuro(word) {
-  const j = jongseong(word);
-  return j <= 0 || j === 8 ? "로" : "으로"; // 8 = ㄹ
 }

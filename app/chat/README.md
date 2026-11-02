@@ -9,7 +9,6 @@
 | [dispatch.py](dispatch.py) | 요청을 분류하고 분석 실행·계획 확인·저장 결과 활용 경로로 전달한다. |
 | [responses.py](responses.py) | 대화·확인 질문·화면 안내 문구를 LLM으로 작성하는 공통 응답 계층. |
 | [service.py](service.py) | 채팅 요청을 공통 대화 처리기로 전달하는 진입점. |
-| [summary.py](summary.py) | 저장된 분석 결과를 공통 LLM 응답 계층으로 요약하는 호환 진입점. |
 | [thread_context.py](thread_context.py) | 대화(thread) 맥락 관리. |
 | [turn_router.py](turn_router.py) | 분석 계획 생성 전에 사용자 요청을 분류하고 저장된 결과 기반 응답을 만든다. |
 

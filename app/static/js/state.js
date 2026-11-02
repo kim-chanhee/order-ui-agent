@@ -22,6 +22,7 @@ export const appState = {
     agent2ui: generateUUID(),
   },
   activeRunId: null,
+  cancelledRunId: null,
   isLoading: false,
   currentResult: null,
   currentSurface: null,
@@ -36,6 +37,7 @@ export function currentThreadId() {
 
 export function beginRun() {
   appState.activeRunId = generateUUID();
+  appState.cancelledRunId = null;
   appState.isLoading = true;
   return appState.activeRunId;
 }
@@ -43,6 +45,7 @@ export function beginRun() {
 export function endRun(runId) {
   if (appState.activeRunId !== runId) return false;
   appState.activeRunId = null;
+  appState.cancelledRunId = null;
   appState.isLoading = false;
   return true;
 }

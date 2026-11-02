@@ -56,6 +56,14 @@ def _normalize_relationship_scope(
     """표시 이름을 얻는 관계가 의미 메타데이터에서 하나로 정해지면 계획의 관계 범위를 보정한다."""
 
     plan = output.analysis_plan
+    semantics = load_analysis_semantics()
+    aliases = semantics.get('relationship_scope_aliases', {})
+    if plan.relationship_scope in aliases:
+        plan.relationship_scope = aliases[plan.relationship_scope]
+    # A semantic mode expresses requested scope. Resolving a display name must
+    # not overwrite it with one physical edge and lose the direct-link request.
+    if plan.relationship_scope in {'direct_event_link', 'parent_membership', 'entity_lifecycle'}:
+        return output
     requested = {str(value).strip().casefold() for value in plan.requested_attributes}
     if "display_name" not in requested or not plan.target_entity:
         return output
@@ -103,6 +111,16 @@ def _promote_headline_metric(output: DynamicPlannerOutput) -> DynamicPlannerOutp
     plan = output.analysis_plan
     if plan.metric is None and plan.metrics:
         plan.metric = plan.metrics[0].model_copy(deep=True)
+    # The model may bind a control to the list copy of the headline metric.
+    # Bind that identical metric to the primary editor so its dependencies and
+    # mirrored list entry stay synchronized. Independent metrics are untouched.
+    for block in output.ui_blocks:
+        path = block.field_path or ""
+        match = re.fullmatch(r"metrics(?:\[(\d+)\]|\.(\d+))\.(\w+)", path)
+        if match:
+            index = int(match.group(1) or match.group(2))
+            if index < len(plan.metrics) and plan.metrics[index] == plan.metric:
+                block.field_path = f"metric.{match.group(3)}"
     return output
 
 

@@ -4,7 +4,7 @@ import {
   renderTextareaComponent, renderNumberComponent, renderSelectComponent,
   renderOptionCardsComponent, renderMultiSelectComponent, renderCheckboxComponent,
   renderDateComponent, renderDateRangeComponent, renderChoiceComponent, renderReviewComponent,
-} from "./inputs.js?v=plan-sentence-redesign";
+} from "./inputs.js?v=dynamic-blueprint-v1";
 
 export function registerReviewComponents() {
   initializeDefaultComponents({

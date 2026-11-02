@@ -8,6 +8,8 @@
 """
 
 from __future__ import annotations
+from app.core.llm_usage import track_llm_request
+
 
 import json
 from uuid import uuid4
@@ -26,6 +28,7 @@ from app.routes.a2ui.schemas import ConfirmDraftRequest, ConfirmDraftResponse
 from app.runtime.state_store import get_thread_results
 
 
+@track_llm_request
 def confirm_response_payload(payload: ConfirmDraftRequest) -> dict:
     """확정 요청의 계획을 복사·검증하고 선택된 이전 분석 결과를 실행 문맥에 연결한다.
 

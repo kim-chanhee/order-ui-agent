@@ -232,7 +232,8 @@ def retrieve_relevant_schema(
 def schema_fingerprint() -> str:
     """테이블·뷰·인덱스의 정렬된 이름과 생성 SQL을 해시해 짧은 구조 식별값을 만든다.
 
-    데이터 행 값이 아니라 스키마 구조를 식별하는 값이다.
+    DB 경로·수정 시각·스키마·의미 설정·검증 버전으로 이전 사례의 재사용 범위를 구분한다.
+    행 데이터의 전체 해시나 정확도 검증 결과를 뜻하지 않는다.
     """
 
     with closing(create_read_only_connection(DEFAULT_DB_PATH)) as conn:
@@ -241,7 +242,12 @@ def schema_fingerprint() -> str:
             "WHERE type IN ('table', 'view', 'index') AND name NOT LIKE 'sqlite_%' "
             "ORDER BY type, name"
         ).fetchall()
-    payload = "\n".join(f"{row[0]}\n{row[1]}" for row in rows)
+    import json
+    from app.execution.analysis_semantics import load_analysis_semantics
+    stat = DEFAULT_DB_PATH.stat()
+    identity = (str(DEFAULT_DB_PATH.resolve()), stat.st_size, stat.st_mtime_ns,
+                'population-and-key-roles-v1', load_analysis_semantics())
+    payload = json.dumps(identity, ensure_ascii=False, sort_keys=True) + "\n" + "\n".join(f"{row[0]}\n{row[1]}" for row in rows)
     return sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 

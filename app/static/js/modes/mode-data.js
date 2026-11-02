@@ -2,12 +2,12 @@ import {
   activateAdminMode,
   applyAdminResponse,
   buildAdminRequest,
-} from "./admin-mode-data.js?v=plan-sentence-redesign";
+} from "./admin-mode-data.js?v=dynamic-blueprint-v1";
 import {
   activateUserMode,
   applyUserResponse,
   buildUserRequest,
-} from "./user-mode-data.js?v=plan-sentence-redesign";
+} from "./user-mode-data.js?v=dynamic-blueprint-v1";
 
 const modeDataAdapters = {
   admin: {

@@ -32,7 +32,7 @@ def value_aliases_path() -> Path:
 
 
 @lru_cache(maxsize=8)
-def _load_aliases(path_text: str) -> dict[str, tuple[str, ...]]:
+def _load_aliases(path_text: str, version: tuple[int,int] | None = None) -> dict[str, tuple[str, ...]]:
     """별칭 JSON을 읽어 별칭별 표준 값 튜플로 정리하고 경로별로 캐시한다.
 
     문자열·리스트 값을 소문자화하고 중복을 제거하며 읽기 실패나 잘못된 구조는 빈 매핑으로 처리한다.
@@ -61,6 +61,16 @@ def _load_aliases(path_text: str) -> dict[str, tuple[str, ...]]:
     return aliases
 
 
+def _current_aliases():
+    path = value_aliases_path().resolve()
+    try:
+        stat = path.stat()
+        version = (stat.st_mtime_ns, stat.st_size)
+    except OSError:
+        version = None
+    return _load_aliases(str(path), version)
+
+
 def canonical_values_for_text(text: str) -> dict[str, tuple[str, ...]]:
     """현재 텍스트에 실제로 포함된 별칭과 대응하는 표준 값만 반환한다.
 
@@ -68,7 +78,7 @@ def canonical_values_for_text(text: str) -> dict[str, tuple[str, ...]]:
     """
 
     lowered = text.lower()
-    aliases = _load_aliases(str(value_aliases_path().resolve()))
+    aliases = _current_aliases()
     return {
         alias: aliases[alias]
         for alias in sorted(aliases, key=len, reverse=True)
@@ -83,7 +93,7 @@ def canonical_value_labels() -> dict[str, str]:
     """
 
     labels: dict[str, str] = {}
-    for alias, values in _load_aliases(str(value_aliases_path().resolve())).items():
+    for alias, values in _current_aliases().items():
         for value in values:
             labels.setdefault(value, alias)
     return labels

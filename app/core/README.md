@@ -7,6 +7,8 @@
 | 파일 | 역할 |
 |---|---|
 | [llm_settings.py](llm_settings.py) | SQL 에이전트가 쓸 OpenAI 호환 LLM 연결 값을 환경 변수에서 고른다. |
+| [model_errors.py](model_errors.py) | 공급자 오류를 분류하고 일시적 오류만 제한 재시도한다. |
+| [llm_usage.py](llm_usage.py) | 요청별 호출 상한과 실제 보고 토큰을 관리한다. 프롬프트·키는 기록하지 않는다. |
 | [startup_checks.py](startup_checks.py) | 앱 기동 시 로컬 자원이 쓸 수 있는지 검사한다. |
 
 ## 연결 흐름

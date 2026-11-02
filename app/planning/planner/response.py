@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import types
+import re
 from copy import deepcopy
-from typing import Any, Literal, Union, get_args, get_origin
+from typing import Any, get_args
 
 from pydantic import BaseModel
 
-from app.planning.analysis_models import AnalysisPlan, FieldSource, FieldStatus
+from app.planning.analysis_models import AnalysisPlan, FieldMetadata, FieldSource, FieldStatus
 from app.planning.ui_models import (
     ComponentType,
     DynamicPlannerOutput,
@@ -23,134 +23,10 @@ from app.planning.planner.controls import _FIELD_PATH_PREFIX
 _VALID_COMPONENT_TYPES = set(get_args(ComponentType))
 
 
-_DATE_RANGE_SUBFIELDS = {"mode", "preset", "relative_days", "date_from", "date_to"}
-
-
-_FIELD_PATH_TYPE_FALLBACK: list[tuple[str, str]] = [
-    ("date_range", "date_range"),
-    ("event_types", "multi_select"),
-    ("group_by", "multi_select"),
-    ("target_conditions", "textarea"),
-    ("metric", "option_cards"),
-    ("metrics", "option_cards"),
-    ("comparison", "choice"),
-    ("output", "choice"),
-]
-
-
-def _coerce_block_type(raw_type: Any, field_path: str | None) -> str:
-    """잘못된 UI 타입을 날짜 하위 필드나 연결 경로에 따라 보정하고 판단할 수 없으면 text로 대체한다."""
-
-    if raw_type in _VALID_COMPONENT_TYPES:
-        return raw_type
-    if raw_type in _DATE_RANGE_SUBFIELDS:
-        return "date_range"
-    if isinstance(field_path, str):
-        for prefix, fallback_type in _FIELD_PATH_TYPE_FALLBACK:
-            if field_path == prefix or field_path.startswith(f"{prefix}."):
-                return fallback_type
-    return "text"
-
-
 _DROP = object()
 
 
-def _wrap_scalar_as_model(data: Any, model_cls: type[BaseModel]) -> dict[str, Any] | None:
-    """value와 label이 있는 모델에 단일 값이 전달되면 두 필드를 가진 객체로 감싼다."""
-
-    if not isinstance(data, (str, int, float, bool)):
-        return None
-    fields = model_cls.model_fields
-    if "value" in fields and "label" in fields:
-        return {"value": str(data), "label": str(data)}
-    return None
-
-
-def _sanitize_value(data: Any, annotation: Any) -> Any:
-    """타입 선언을 재귀적으로 따라 LLM 응답의 잘못된 필드·선택값·객체 형태를 제거하거나 보정한다."""
-
-    if data is None:
-        return None
-
-    origin = get_origin(annotation)
-
-    if origin is Union or origin is types.UnionType:
-        args = get_args(annotation)
-        non_none = [arg for arg in args if arg is not type(None)]
-        nullable = type(None) in args
-        model_args = [arg for arg in non_none if isinstance(arg, type) and issubclass(arg, BaseModel)]
-        if model_args and isinstance(data, dict):
-            tag = data.get("mode")
-            for candidate in model_args:
-                disc_field = candidate.model_fields.get("mode")
-                if disc_field is not None and tag in get_args(disc_field.annotation):
-                    return _sanitize_value(data, candidate)
-            # 여러 모델 중 mode 값과 일치하는 모델이 없을 때만 변환을 중단한다.
-            # MetricSpec | None처럼 선택 가능한 모델이 하나뿐인 경우에는
-            # 아래의 단일 타입 처리 분기로 넘겨 정상적인 객체를 유지한다.
-            # 이 경우까지 None으로 바꾸면 LLM이 생성한 유효한 지표가 사라진다.
-            if len(model_args) > 1:
-                return None if nullable else _DROP
-        if len(non_none) == 1:
-            result = _sanitize_value(data, non_none[0])
-            if result is _DROP:
-                return None if nullable else _DROP
-            return result
-        return data
-
-    if origin is list:
-        (item_type,) = get_args(annotation) or (Any,)
-        if not isinstance(data, list):
-            return _DROP
-        cleaned_items = []
-        for item in data:
-            sanitized = _sanitize_value(item, item_type)
-            if sanitized is not _DROP:
-                cleaned_items.append(sanitized)
-        return cleaned_items
-
-    if origin is dict:
-        args = get_args(annotation)
-        value_type = args[1] if len(args) == 2 else Any
-        if not isinstance(data, dict):
-            return _DROP
-        cleaned_dict = {}
-        for key, value in data.items():
-            sanitized = _sanitize_value(value, value_type)
-            if sanitized is not _DROP:
-                cleaned_dict[key] = sanitized
-        return cleaned_dict
-
-    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
-        if not isinstance(data, dict):
-            wrapped = _wrap_scalar_as_model(data, annotation)
-            if wrapped is None:
-                return _DROP
-            data = wrapped
-        cleaned_obj = {}
-        for key, field in annotation.model_fields.items():
-            if key not in data:
-                continue
-            sanitized = _sanitize_value(data[key], field.annotation)
-            if sanitized is not _DROP:
-                cleaned_obj[key] = sanitized
-        return cleaned_obj
-
-    if origin is Literal:
-        allowed = get_args(annotation)
-        return data if data in allowed else _DROP
-
-    return data
-
-
-def _sanitize_for_model(data: dict[str, Any], model_cls: type[BaseModel]) -> dict[str, Any]:
-    """지정한 Pydantic 모델 기준으로 응답을 정리하고 딕셔너리 형태의 결과를 반환한다."""
-
-    sanitized = _sanitize_value(data, model_cls)
-    return sanitized if isinstance(sanitized, dict) else data
-
-
-def _canonicalize_planner_output(result: Any, question: str) -> DynamicPlannerOutput:
+def _canonicalize_planner_output(result: Any, question: str, *, include_ui: bool = True) -> DynamicPlannerOutput:
     """루트에 잘못 배치된 계획 필드와 UI·메타데이터를 복구한 뒤 표준 응답 모델로 검증한다."""
 
     if isinstance(result, BaseModel):
@@ -171,7 +47,7 @@ def _canonicalize_planner_output(result: Any, question: str) -> DynamicPlannerOu
     # LLM이 계획 필드를 응답 최상위에 잘못 배치했으면 계획 내부로 옮긴다.
     # 이 단계는 응답 구조만 보정하며 새로운 분석 의미를 추가하지 않는다.
     for key in AnalysisPlan.model_fields:
-        if key in payload:
+        if key != "field_metadata" and key in payload:
             raw_plan[key] = payload[key]
     raw_plan["original_question"] = question
 
@@ -182,15 +58,16 @@ def _canonicalize_planner_output(result: Any, question: str) -> DynamicPlannerOu
         **(root_metadata if isinstance(root_metadata, dict) else {}),
     })
     raw_plan["field_metadata"] = merged_metadata
-    raw_plan = _sanitize_for_model(raw_plan, AnalysisPlan)
+    # Preserve semantic values for strict validation; invalid conditions must not disappear.
+    raw_plan = AnalysisPlan.model_validate(raw_plan).model_dump(mode="json")
     merged_metadata = raw_plan.get("field_metadata", merged_metadata)
 
     canonical = {
         "analysis_plan": raw_plan,
-        "ui_blocks": _repair_raw_ui_blocks(payload.get("ui_blocks")),
+        "ui_blocks": _repair_raw_ui_blocks(payload.get("ui_blocks"), plan=raw_plan) if include_ui else [],
         "missing_fields": _string_list(payload.get("missing_fields")),
         "field_metadata": merged_metadata,
-        "suggested_constraints": _repair_raw_suggestions(payload.get("suggested_constraints")),
+        "suggested_constraints": _repair_raw_suggestions(payload.get("suggested_constraints")) if include_ui else [],
         "infeasible": _repair_raw_infeasible(payload.get("infeasible")),
         "summary": str(payload.get("summary") or "요청한 분석 조건을 구조화했습니다."),
         "warnings": _string_list(payload.get("warnings")),
@@ -253,14 +130,17 @@ def _repair_raw_field_metadata(value: dict[str, Any]) -> dict[str, Any]:
         raw = item.model_dump(mode="json") if isinstance(item, BaseModel) else deepcopy(item)
         if not isinstance(raw, dict):
             continue
+        # Metadata is provenance only. Ignore model-added presentation hints;
+        # semantic plan fields are still validated strictly by AnalysisPlan.
+        raw = {key: item for key, item in raw.items() if key in FieldMetadata.model_fields}
         raw["status"] = _coerce_field_status(raw.get("status"))
         raw["source"] = _coerce_field_source(raw.get("source"))
         repaired[str(field)] = raw
     return repaired
 
 
-def _repair_raw_ui_blocks(value: Any) -> list[dict[str, Any]]:
-    """UI 경로·타입·선택지·조건·키를 보정하고 연결할 필드가 없는 입력 블록을 제외한 뒤 검증한다."""
+def _repair_raw_ui_blocks(value: Any, *, plan: dict | None = None) -> list[dict[str, Any]]:
+    """Repair known transport aliases; never invent or replace a plan selection."""
 
     if not isinstance(value, list):
         return []
@@ -282,14 +162,29 @@ def _repair_raw_ui_blocks(value: Any) -> list[dict[str, Any]]:
             # summary처럼 편집할 수 없는 설명 필드를 가리키는 경로는 해제한다.
             # 하나의 잘못된 연결 때문에 전체 계획을 실패시키지 않고
             # 연결을 해제한 뒤 아래 단계에서 블록 유형에 따라 유지 여부를 결정한다.
-            raw["field_path"] = path if _EDITABLE_PLAN_PATH.fullmatch(path) else None
-        raw["type"] = _coerce_block_type(raw.get("type"), raw.get("field_path"))
+            if not _EDITABLE_PLAN_PATH.fullmatch(path):
+                raise ValueError(f"UI Block targets a forbidden path: {path}")
+            raw["field_path"] = path
+        # These are field names incorrectly emitted as types, not new components.
+        aliases = {"group_by": ("group_by", "multi_select"), "metric": ("metric.kind", "choice")}
+        alias = aliases.get(raw.get("type"))
+        if alias and path == alias[0]:
+            raw["type"] = alias[1]
+        if raw.get("type") == "sort" and isinstance(path, str) and re.fullmatch(r"sort(?:\[\d+\]|\.\d+)\.direction", path):
+            raw["type"] = "choice"
+        if raw.get("type") not in _VALID_COMPONENT_TYPES:
+            raise ValueError("UI Block type is not registered in the component catalog")
         # 분석 필드에 연결되지 않은 입력 블록은 값을 반영할 수 없으므로 제외한다.
         # LLM이 설명 필드에 연결한 날짜 입력이나 임의의 확인 체크박스가 여기에 해당한다.
         # review·notice처럼 정보만 표시하는 블록은 연결할 필드 없이도 유지한다.
         if raw.get("field_path") is None and raw["type"] not in {"review", "notice"}:
-            continue
+            raise ValueError("Input blocks require an editable AnalysisPlan field_path")
         props = raw.get("props") if isinstance(raw.get("props"), dict) else {}
+        selected = _transport_plan_value(plan, path)
+        _remove_matching_selection_copy(raw, selected, path)
+        props = dict(props)
+        _remove_matching_selection_copy(props, selected, path)
+        raw["props"] = props
         if not raw.get("options") and isinstance(props.get("options"), list):
             raw["options"] = props["options"]
         raw_options = raw.get("options")
@@ -299,6 +194,13 @@ def _repair_raw_ui_blocks(value: Any) -> list[dict[str, Any]]:
             for option in raw_options:
                 if not isinstance(option, dict) or "value" not in option:
                     continue
+                option = dict(option)
+                for key in list(option):
+                    if key.lower() in {"default", "selected", "checked"}:
+                        flag = option.pop(key)
+                        values = selected if isinstance(selected, list) else [selected]
+                        if not isinstance(flag, bool) or selected is _DROP or flag != (option["value"] in values):
+                            raise ValueError(f"UI option selection conflicts with AnalysisPlan: {path}")
                 values = option.get("value")
                 if isinstance(values, list):
                     saw_collection = True
@@ -322,19 +224,36 @@ def _repair_raw_ui_blocks(value: Any) -> list[dict[str, Any]]:
         if not raw.get("key"):
             raw["key"] = str(raw.get("field_path") or "review").replace(".", "_")[:100]
         base_key = str(raw["key"])
-        candidate = base_key
-        suffix = 2
-        while candidate in used_keys:
-            candidate = f"{base_key}_{suffix}"[:100]
-            suffix += 1
-        raw["key"] = candidate
-        used_keys.add(candidate)
+        if base_key in used_keys:
+            raise ValueError('UI Block key must be unique')
+        used_keys.add(base_key)
         if not raw.get("label"):
             raw["label"] = str(raw.get("field_path") or raw["key"])
-        raw = _sanitize_for_model(raw, UiBlock)
         block = UiBlock.model_validate(raw)
         repaired.append(block.model_dump(mode="json"))
     return repaired
+
+
+def _transport_plan_value(plan: dict | None, path: Any) -> Any:
+    if not isinstance(plan, dict) or not isinstance(path, str):
+        return _DROP
+    current: Any = plan
+    try:
+        for part in re.sub(r"\[(\d+)\]", r".\1", path).split("."):
+            current = current[int(part)] if isinstance(current, list) else current[part]
+        return current
+    except (KeyError, IndexError, TypeError, ValueError):
+        return _DROP
+
+
+def _remove_matching_selection_copy(data: dict, selected: Any, path: Any) -> None:
+    for key in list(data):
+        if key.lower() not in {"value", "selected", "default", "default_value", "defaultvalue", "checked"}:
+            continue
+        value = data.pop(key)
+        matches = selected is not _DROP and (value == selected or isinstance(selected, list) and len(selected) == 1 and value == selected[0])
+        if not matches:
+            raise ValueError(f"UI selection conflicts with AnalysisPlan: {path}")
 
 
 def _repair_raw_condition(value: dict[str, Any]) -> dict[str, Any]:
@@ -392,7 +311,11 @@ def _repair_raw_infeasible(value: Any) -> list[dict[str, Any]]:
         path = raw.get("field_path") or raw.get("field")
         if isinstance(path, str):
             path = path.removeprefix(_FIELD_PATH_PREFIX)
-            raw["field_path"] = path if _EDITABLE_PLAN_PATH.fullmatch(path) else None
+            # An explanatory diagnostic is not an editable input. Preserve its
+            # reason even when its target is a read-only semantic plan field.
+            if not _EDITABLE_PLAN_PATH.fullmatch(path):
+                path = None
+            raw["field_path"] = path
         raw.setdefault("label", str(raw.get("reason") or "확인 필요")[:200])
         try:
             repaired.append(InfeasibleCondition.model_validate(raw).model_dump(mode="json"))

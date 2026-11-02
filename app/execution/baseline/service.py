@@ -14,6 +14,7 @@ from uuid import uuid4
 
 from app.a2ui.adapter import analysis_result_to_surface
 from app.a2ui.models import A2UIClientCapabilities
+from app.chat.responses import planning_failure_result
 from app.chat.thread_context import agent_cache_context, contextual_request, compact_context_record, context_record_id
 from app.execution.confirmed_execution import execute_schema_question
 from app.execution.confirmed_context import ConfirmedAnalysisContext
@@ -36,7 +37,13 @@ def baseline_response_payload(
 
     thread_id = thread_id or str(uuid4())
     question = payload.question.strip()
-    review_plan = build_review_plan(question, thread_id, context_records=routing_context)
+    review_plan = build_review_plan(question, thread_id, context_records=routing_context, include_ui=False)
+    if review_plan.analysis_plan.source == "safe_fallback":
+        result = planning_failure_result(question, review_plan, 'baseline')
+        return ChatResponse(
+            answer=result['answer'], thread_id=thread_id, input_source="baseline",
+            execution_result=result,
+        ).model_dump(mode="json")
     if not review_plan.requires_confirmation:
         return ChatResponse(
             answer=review_plan.summary, thread_id=thread_id, input_source="baseline",
@@ -47,14 +54,19 @@ def baseline_response_payload(
     analysis_plan = review_plan.analysis_plan
     reference = analysis_plan.context_reference
     if routing_context is not None and (
-        analysis_plan.source == "safe_fallback"
-        or (routing_context and (not reference or reference.needs_confirmation
-                                or reference.scope_id != context_record_id(routing_context[-1])))
+        routing_context and (not reference or reference.needs_confirmation
+                             or reference.scope_id != context_record_id(routing_context[-1]))
     ):
         answer = "분석 조건이나 참조할 이전 결과를 확인하지 못했습니다. 원하는 조건을 조금 더 구체적으로 알려주세요."
         return ChatResponse(answer=answer, thread_id=thread_id, input_source="baseline",
                             execution_result={"kind": "clarification", "input_source": "baseline", "answer": answer,
                                               "normalized_spec": {"original_question": question}}).model_dump(mode="json")
+    if review_plan.missing_fields or analysis_plan.unresolved_constraints or review_plan.infeasible:
+        reasons = analysis_plan.unresolved_constraints or [item.reason for item in review_plan.infeasible]
+        answer = '조회에 필요한 조건을 확인해 주세요. ' + ('; '.join(reasons) or ', '.join(review_plan.missing_fields))
+        return ChatResponse(answer=answer, thread_id=thread_id, input_source='baseline',
+            execution_result={'kind':'clarification','input_source':'baseline','answer':answer,
+                              'normalized_spec':{'original_question':question}}).model_dump(mode='json')
     execution_question = contextual_request(question, thread_id) if routing_context is None else question
     if routing_context:
         execution_question += "\n\nSelected previous result (use only to resolve this follow-up):\n" + json.dumps(

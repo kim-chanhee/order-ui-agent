@@ -20,7 +20,8 @@ from typing import Any
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 
-from app.core.llm_settings import resolve_agent_llm_settings
+from app.core.model_errors import classify_model_error
+from app.core.llm_settings import resolve_agent_llm_settings, chat_model_kwargs
 from app.execution.confirmed_context import ConfirmedAnalysisContext
 from app.execution.schema_tools import (
     discover_relationships,
@@ -58,72 +59,6 @@ FAST_SQL_MIN_ALTERNATIVE_SECONDS = float(
 )
 
 
-@dataclass(frozen=True)
-class ModelErrorClassification:
-    """모델 호출 오류의 분류명·재시도 가능 여부·HTTP 상태를 함께 보관한다.
-
-    재시도 정책이 공급자 오류와 의미 오류를 구분하는 기준으로 사용한다.
-    """
-
-    category: str
-    retryable: bool
-    status_code: int | None = None
-
-
-def _is_rate_limit_error(exc: BaseException) -> bool:
-    """예외 클래스명·상태 코드·메시지에서 요청 한도 초과 여부를 찾는다.
-
-    SDK마다 오류 표현이 달라도 429 계열을 공통으로 분류하기 위한 보조 함수다.
-    """
-
-    if exc.__class__.__name__ in {"RateLimitError", "TooManyRequestsError"}:
-        return True
-    status = getattr(exc, "status_code", None) or getattr(exc, "code", None)
-    if status == 429 or status == "429":
-        return True
-    text = str(exc).lower()
-    return "429" in text or "rate limit" in text or "too many requests" in text
-
-
-def classify_model_error(exc: BaseException) -> ModelErrorClassification:
-    """모델 호출 예외를 요청 한도·일시적 공급자 오류·인증·시간 초과·연결 오류 등으로 분류한다.
-
-    재시도 여부와 상태 코드를 포함한 ModelErrorClassification을 반환한다.
-    """
-
-    raw_status = (
-        getattr(exc, "status_code", None)
-        or getattr(exc, "code", None)
-        or getattr(getattr(exc, "response", None), "status_code", None)
-    )
-    try:
-        status = int(raw_status) if raw_status is not None else None
-    except (TypeError, ValueError):
-        status = None
-    name = exc.__class__.__name__.casefold()
-    text = str(exc).casefold()
-    if _is_rate_limit_error(exc):
-        return ModelErrorClassification("provider_rate_limit", True, 429)
-    if status in {408, 425, 500, 502, 503, 504}:
-        return ModelErrorClassification("provider_transient", True, status)
-    if status in {401, 403}:
-        return ModelErrorClassification("provider_auth", False, status)
-    if (
-        isinstance(exc, TimeoutError)
-        or "timeout" in name
-        or "timed out" in text
-        or "deadline exceeded" in text
-    ):
-        return ModelErrorClassification("network_timeout", True, status)
-    if (
-        isinstance(exc, ConnectionError)
-        or "connection" in name
-        or "connection reset" in text
-        or "connection refused" in text
-        or "temporarily unavailable" in text
-    ):
-        return ModelErrorClassification("network_connection", True, status)
-    return ModelErrorClassification("model_non_retryable", False, status)
 
 
 def classify_failure_message(error: str) -> dict[str, Any]:
@@ -133,6 +68,11 @@ def classify_failure_message(error: str) -> dict[str, Any]:
     """
 
     lowered = error.casefold()
+    from app.core.model_errors import quota_exhausted
+    if 'llm_budget_exceeded' in lowered:
+        return {'failure_stage':'model','failure_category':'llm_budget_exceeded','retryable':False}
+    if quota_exhausted(error):
+        return {'failure_stage':'model', 'failure_category':'provider_quota_exhausted', 'retryable':False}
     if "429" in lowered or "rate limit" in lowered:
         return {"failure_stage": "model", "failure_category": "provider_rate_limit", "retryable": True}
     if any(term in lowered for term in ("timed out", "timeout", "deadline exceeded")):
@@ -207,6 +147,7 @@ class FastSqlResult:
     selected_candidate_index: int = 0
     candidate_scores: list[dict[str, Any]] = field(default_factory=list)
     model_retries: int = 0
+    execution_route: str = 'fast_llm_sql'
 
 
 def try_fast_sql_answer(
@@ -221,19 +162,10 @@ def try_fast_sql_answer(
     성공 SQL이 없으면 오류를 발생시키며, 성공하면 원시 결과·답변·호출 통계를 FastSqlResult로 반환한다.
     """
 
-    provider, base_url, api_key, model, _timeout = resolve_agent_llm_settings()
-    kwargs: dict[str, Any] = {
-        "model": model,
-        "timeout": (5.0, FAST_SQL_TIMEOUT_SECONDS),
-        "max_retries": 0,
-        "max_completion_tokens": FAST_SQL_MAX_TOKENS,
-    }
-    if not model.startswith("gpt-5"):
-        kwargs["temperature"] = 0
-    if base_url:
-        kwargs["base_url"] = base_url
-    if api_key:
-        kwargs["api_key"] = api_key
+    settings = resolve_agent_llm_settings()
+    model = settings[3]
+    kwargs = chat_model_kwargs('sql', settings=settings, timeout=(5.0, FAST_SQL_TIMEOUT_SECONDS),
+                               max_tokens=FAST_SQL_MAX_TOKENS)
 
     started = perf_counter()
     execution_request = confirmed_context.execution_request() if confirmed_context else question

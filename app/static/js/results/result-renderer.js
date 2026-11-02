@@ -1,16 +1,7 @@
-import { renderFollowUpActions } from "./a2ui/follow-ups.js?v=plan-sentence-redesign";
-import { clearElement, createElement, createMarkdownParagraph, safeText } from "../utils.js?v=plan-sentence-redesign";
+import { renderFollowUpActions } from "./a2ui/follow-ups.js?v=dynamic-blueprint-v1";
+import { clearElement, createElement, createMarkdownParagraph, safeText } from "../utils.js?v=dynamic-blueprint-v1";
 
 const INITIAL_TABLE_ROWS = 50;
-
-export function renderAnalysisResult(result, container, options = {}) {
-  const nodes = [];
-  if (result.hasStructuredData) {
-    if (shouldShowChart(result)) nodes.push(renderChart(result));
-    nodes.push(renderTable(result));
-  }
-  renderResultWithComponents(result, nodes, container, options);
-}
 
 export function renderResultWithComponents(result, componentNodes, container, options = {}) {
   clearElement(container);
@@ -30,7 +21,8 @@ export function renderResultTableComponent(_component, context) {
 }
 
 export function renderResultBarChartComponent(_component, context) {
-  return shouldShowChart(context.result) ? renderChart(context.result) : null;
+  return shouldShowChart(context.result) ? renderChart(context.result)
+    : context.result.metadata.result_view === "chart" ? renderTable(context.result) : null;
 }
 
 function renderSummary(result, includeAnswer = true) {
@@ -196,9 +188,12 @@ function renderTable(result) {
   return wrapper;
 }
 
-function partitionTableColumns(result, columns) {
+export function partitionTableColumns(result, columns) {
   if (result.rows.length < 2) return { commonColumns: [], detailColumns: columns };
   const commonColumns = columns.filter((column) => {
+    // Constant measurements (including zero) are still analysis results.
+    const role = (result.metadata.column_metadata || []).find((item) => item.name === column)?.role;
+    if (role === "metric" || (role !== "dimension" && result.rows.some((row) => typeof row[column] === "number"))) return false;
     const first = normalizedComparableValue(result.rows[0]?.[column]);
     return result.rows.every((row) => normalizedComparableValue(row?.[column]) === first);
   });
@@ -226,22 +221,29 @@ function normalizedComparableValue(value) {
 
 function renderChart(result) {
   const metricColumn = findMetricColumn(result);
-  const labelColumn = findLabelColumn(result);
   if (!metricColumn) return createElement("div");
   const values = result.rows.map((row) => Number(row[metricColumn]) || 0);
   const max = Math.max(...values, 1);
-  const chart = createElement("div", { className: "result-chart", attrs: { role: "img", "aria-label": "분석 결과 막대 차트" } });
+  const chart = createElement("div", { className: "result-chart", attrs: { role: "region", "aria-label": "분석 결과 막대 차트" } });
   chart.append(createElement("h4", { text: columnLabel(result, metricColumn) }));
-  result.rows.slice(0, 12).forEach((row, index) => {
+  const appendRows = (rows, offset = 0) => rows.forEach((row, index) => {
     const value = Number(row[metricColumn]) || 0;
     const item = createElement("div", { className: "chart-row" });
-    item.append(createElement("span", { className: "chart-label", text: safeText(row[labelColumn] ?? `${index + 1}`) }));
+    const label = chartRowLabel(result,row) || `${offset + index + 1}`;
+    item.append(createElement("span", { className: "chart-label", text: label, attrs: { title: label } }));
+    const track = createElement("span", { className: "chart-track" });
     const bar = createElement("span", { className: "chart-bar" });
     bar.style.width = `${Math.max(4, (value / max) * 100)}%`;
-    item.append(bar, createElement("span", { className: "chart-value", text: formatCell(value, metricColumn) }));
+    track.append(bar);
+    item.append(track, createElement("span", { className: "chart-value", text: formatCell(value, metricColumn) }));
     chart.append(item);
   });
-  if (result.rows.length > 12) chart.append(createElement("small", { className: "chart-disclosure", text: `전체 ${result.rows.length}개 중 상위 12개를 표시합니다.` }));
+  appendRows(result.rows.slice(0, 12));
+  if (result.rows.length > 12) {
+    const more = createElement("button", { className: "secondary", text: `나머지 ${result.rows.length - 12}개 결과 보기`, attrs: { type: "button" } });
+    more.addEventListener("click", () => { appendRows(result.rows.slice(12), 12); more.remove(); });
+    chart.append(more);
+  }
   return chart;
 }
 
@@ -272,6 +274,14 @@ function findLabelColumn(result) {
   return dimension?.name || result.columns.find((column) => column !== metric) || result.columns[0];
 }
 
+export function chartRowLabel(result, row) {
+  const metric = findMetricColumn(result);
+  const declared = (result.metadata.column_metadata || []).filter((c) => c.role === "dimension" && result.columns.includes(c.name)).map((c) => c.name);
+  const inferred = result.columns.filter((c) => c !== metric && result.rows.some((r) => r[c] != null && !Number.isFinite(Number(r[c]))));
+  const dimensions = declared.length ? declared : inferred.length ? inferred : [findLabelColumn(result)];
+  return dimensions.map((c) => safeText(row[c])).join(" · ");
+}
+
 export function shouldShowChart(result) {
   if (!["chart", "table_and_chart"].includes(result.metadata.result_view) || result.rows.length < 2) return false;
   const metric = findMetricColumn(result);
@@ -279,7 +289,7 @@ export function shouldShowChart(result) {
   if (!metric || !label || metric === label) return false;
   const visibleRows = result.rows.slice(0, 12);
   if (!visibleRows.every((row) => Number.isFinite(Number(row[metric])))) return false;
-  const labels = visibleRows.map((row) => safeText(row[label]));
+  const labels = visibleRows.map((row) => chartRowLabel(result,row));
   return labels.every(Boolean) && new Set(labels).size === labels.length;
 }
 

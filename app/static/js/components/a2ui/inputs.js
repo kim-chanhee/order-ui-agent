@@ -1,5 +1,5 @@
 // A2UI 계획 편집에만 사용하는 입력 위젯과 값 변경 처리.
-import { createElement } from "../../utils.js?v=plan-sentence-redesign";
+import { createElement } from "../../utils.js?v=dynamic-blueprint-v1";
 
 export function renderTextInput(block, context) { return inputComponent(block, context, "text"); }
 export function renderTextareaComponent(block, context) { return inputComponent(block, context, "textarea"); }
@@ -41,7 +41,7 @@ export function renderOptionCardsComponent(block, context) {
       }
     });
     input.addEventListener("click", () => {
-      if (context.valueFor(block) === option.value) context.update(context.pathFor(block), null);
+      if (!block.required && context.pathFor(block) !== "metric.kind" && context.valueFor(block) === option.value) context.update(context.pathFor(block), null);
     });
     label.append(input, copy); chips.append(label);
   }

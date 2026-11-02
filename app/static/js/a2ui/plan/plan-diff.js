@@ -1,5 +1,5 @@
-import { clone } from "../../utils.js?v=plan-sentence-redesign";
-import { normalizeAnalysisPlan } from "./plan-normalizer.js?v=plan-sentence-redesign";
+import { clone } from "../../utils.js?v=dynamic-blueprint-v1";
+import { normalizeAnalysisPlan } from "./plan-normalizer.js?v=dynamic-blueprint-v1";
 
 const IGNORED_KEYS = new Set(["source", "confidence", "warnings", "missing_fields"]);
 

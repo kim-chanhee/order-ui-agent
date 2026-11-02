@@ -9,12 +9,15 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from app.core.data_profile import apply_data_profile
+apply_data_profile()
 
 
 def _resolve_default_database_path() -> Path:
     configured = os.environ.get("ORDER_UI_DB_PATH")
     if configured:
-        return Path(configured).expanduser()
+        path = Path(configured).expanduser()
+        return path if path.is_absolute() else PROJECT_ROOT / path
 
     data_dir = PROJECT_ROOT / "Data"
     conventional = data_dir / "database.sqlite"

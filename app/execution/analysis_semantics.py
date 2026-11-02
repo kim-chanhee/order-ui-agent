@@ -21,6 +21,7 @@ from app.data.database import PROJECT_ROOT
 
 
 SEMANTICS_ENV = "ANALYSIS_SEMANTICS_PATH"
+RELATIONSHIP_MODES = frozenset({"direct_event_link", "parent_membership", "entity_lifecycle"})
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
@@ -47,7 +48,7 @@ def analysis_semantics_path() -> Path:
 
 
 @lru_cache(maxsize=8)
-def _load(path_text: str) -> dict[str, Any]:
+def _load(path_text: str, version: tuple[int, int] | None = None) -> dict[str, Any]:
     """주어진 경로의 JSON 객체를 읽고 경로별로 캐시한다.
 
     읽기·JSON 해석에 실패하거나 최상위 값이 객체가 아니면 빈 딕셔너리를 반환한다.
@@ -66,7 +67,30 @@ def load_analysis_semantics() -> dict[str, Any]:
     파일 해석과 실패 처리는 _load에 맡기는 공통 진입점이다.
     """
 
-    return _load(str(analysis_semantics_path().resolve()))
+    path = analysis_semantics_path().resolve()
+    try:
+        stat = path.stat()
+        version = (stat.st_mtime_ns, stat.st_size)
+    except OSError:
+        version = None
+    return _load(str(path), version)
+
+
+def allowed_relationship_scopes() -> set[str]:
+    """Semantic modes are distinct from domain-specific physical relationship names."""
+    semantics = load_analysis_semantics()
+    return set(RELATIONSHIP_MODES) | {
+        edge['name'] for key in ('entity_relationships', 'relationship_scopes')
+        for edge in semantics.get(key, []) if isinstance(edge, dict) and edge.get('name')
+    }
+
+
+def declared_identifier_fields() -> set[str]:
+    """Identifiers declared by the selected domain, including non-*_id keys."""
+    config = load_analysis_semantics()
+    return {field for entity in config.get('entity_roles', {}).values()
+            for field in entity.get('identifier_fields', [])} | {
+                role['field'] for role in config.get('column_roles', []) if role.get('field')}
 
 
 def timeline_anchor() -> tuple[str, str] | None:
@@ -93,9 +117,11 @@ def semantic_execution_context() -> str:
     payload = load_analysis_semantics()
     if not payload:
         return ""
+    # Compact complete JSON avoids cutting off relationship/metric definitions
+    # added at the end of a profile and reduces repeated model input.
     return "Schema-adjacent analysis semantics (advisory; verify physical names):\n" + json.dumps(
-        payload, ensure_ascii=False, indent=2
-    )[:10000]
+        payload, ensure_ascii=False, separators=(',', ':')
+    )
 
 
 def validate_configured_semantics_sql(
@@ -117,7 +143,14 @@ def validate_configured_semantics_sql(
         return sql
     payload = load_analysis_semantics()
     semantic_text = json.dumps(plan, ensure_ascii=False).casefold()
-    sql_text = sql.casefold()
+    # Normalize simple quoted identifiers structurally before legacy text
+    # checks. Quoting a verified field must not look like a missing predicate.
+    from sqlglot import exp, parse_one
+    normalized_sql = parse_one(sql, read='sqlite')
+    for identifier in normalized_sql.find_all(exp.Identifier):
+        if _IDENTIFIER.fullmatch(identifier.name):
+            identifier.set('quoted', False)
+    sql_text = normalized_sql.sql(dialect='sqlite').casefold()
     mode = (
         temporal_context.model_dump(mode="json").get("mode")
         if hasattr(temporal_context, "model_dump")

@@ -10,9 +10,10 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from app.execution.semantic_aliases import canonical_value_labels
+from app.execution.analysis_semantics import load_analysis_semantics, declared_identifier_fields
 from app.planning.analysis_models import AnalysisPlan
 from app.planning.ui_models import UiOption
 
@@ -39,6 +40,8 @@ _DIMENSION_LABELS = {
     "event_type": "이벤트 유형별",
     "status": "상태별",
     "day": "일자별",
+    "month": "월별",
+    "year": "연도별",
 }
 _COUNT_FIELD_LABELS = {
     "event_id": "이벤트 발생 기준",
@@ -73,54 +76,137 @@ class PlanOptionCatalog:
     group_by: list[UiOption]
     count_fields: list[UiOption]
     comparisons: list[UiOption]
+    metric_kinds: list[UiOption] = field(default_factory=list)
+    numeric_fields: list[UiOption] = field(default_factory=list)
+    semantic_metrics: dict = field(default_factory=dict)
+    schema: dict = field(default_factory=dict)
 
 
 def build_plan_option_catalog(schema_text: str, plan: AnalysisPlan) -> PlanOptionCatalog:
     """스키마에서 확인한 값과 현재 계획의 선택값으로 이벤트·집계 기준·건수 단위·비교 선택지를 만든다."""
 
-    columns = _schema_columns(schema_text)
-    events = _event_values(schema_text)
-    event_options = _dedupe_by_label(_options_with_selected(
-        plan.event_types,
-        events,
-        labeler=_event_label,
-    ))
-    group_candidates = _group_candidates(columns)
-    group_options = _dedupe_by_label(_options_with_selected(
-        plan.group_by,
-        group_candidates,
-        labeler=_dimension_label,
-    ))
-    count_candidates = [column for column in columns if column in _COUNT_FIELD_LABELS]
-    selected_count = [plan.metric.field] if plan.metric and plan.metric.field else []
-    count_options = _options_with_selected(
-        selected_count,
-        count_candidates,
-        labeler=_count_field_label,
-    )
-    comparison_options = list(COMPARISON_OPTIONS)
-    if plan.comparison and plan.comparison not in {option.value for option in comparison_options}:
-        comparison_options.insert(0, UiOption(
-            value=plan.comparison,
-            label="현재 비교 방식",
-            description=plan.comparison.replace("_", " "),
-        ))
+    schema = schema_catalog(schema_text)
+    columns = list(dict.fromkeys(column for table in schema.values() for column in table)) or _schema_columns(schema_text)
+    definitions = available_semantic_metrics(schema)
+    metric = plan.metric
+    scope_tables = []
+    if metric and metric.semantic_id in definitions:
+        scope_tables = [definitions[metric.semantic_id]['table']]
+    elif metric and metric.field:
+        scope_tables = [name for name, fields in schema.items() if metric.field in fields]
+    reachable = reachable_columns(schema, scope_tables) if scope_tables else set(columns)
+    group_candidates = _group_candidates([c for c in columns if c in reachable])
+    # SQLite text dimensions and configured identifiers work across domains;
+    # do not limit grouping/counting to logistics-specific entity names.
+    identifiers = declared_identifier_fields()
+    text_dimensions = [c for fields in schema.values() for c, dtype in fields.items()
+                       if c in reachable and re.search(r'TEXT|CHAR|BOOL', dtype, re.I)
+                       and not is_time_field(c, dtype)]
+    # Display names are valid dimensions too, provided they exist in the
+    # reachable schema and the domain configuration declares their role.
+    display_names = set(load_analysis_semantics().get('attribute_roles', {}).get('display_name', []))
+    group_candidates = list(dict.fromkeys([
+        *group_candidates, *text_dimensions,
+        *[c for c in columns if c in reachable and c in display_names],
+    ]))
+    # A temporal bucket is supported only when a real date/time column exists.
+    time_columns = {c for fields in schema.values() for c,t in fields.items() if is_time_field(c,t)} & reachable
+    if time_columns:
+        group_candidates = list(dict.fromkeys([*group_candidates, 'day', 'month', 'year']))
+    else:
+        group_candidates = [c for c in group_candidates if c != 'day']
+    if metric and metric.semantic_id in definitions:
+        group_candidates = [c for c in group_candidates if c in definitions[metric.semantic_id]["group_by"]]
+    groups = [UiOption(value=c, label=_dimension_label(c)) for c in group_candidates]
+    numeric = [c for fields in schema.values() for c,t in fields.items()
+               if c in reachable and re.search(r'INT|REAL|NUM|FLOAT|DOUBLE|DECIMAL',t,re.I)
+               and not is_time_field(c,t) and c not in identifiers and c != 'id' and not c.endswith('_id')]
+    numeric = list(dict.fromkeys(numeric))
+    counts = [c for c in columns if c in reachable and
+              (c in identifiers or c in {'id', 'ocel_id'} or c.endswith('_id'))]
+    kinds = ['rows', 'count']
+    if any(d['kind']=='ratio' for d in definitions.values()):
+        kinds.append('ratio')
+    if numeric:
+        kinds.extend(['sum','avg','min','max'])
+    labels = {'rows':'상세 목록','count':'건수','ratio':'비율','sum':'합계','avg':'평균','min':'최솟값','max':'최댓값'}
     return PlanOptionCatalog(
-        event_types=event_options[:15],
-        group_by=group_options[:12],
-        count_fields=count_options[:10],
-        comparisons=comparison_options,
+        event_types=[UiOption(value=v,label=_event_label(v)) for v in _event_values(schema_text)],
+        group_by=groups,
+        count_fields=[UiOption(value=c,label=_count_field_label(c)) for c in counts],
+        comparisons=list(COMPARISON_OPTIONS),
+        metric_kinds=[UiOption(value=k,label=labels[k]) for k in kinds],
+        numeric_fields=[UiOption(value=c,label=c) for c in numeric],
+        semantic_metrics=definitions, schema=schema,
     )
 
 
-def merge_options(preferred: list[UiOption], available: list[UiOption]) -> list[UiOption]:
-    """값이 같은 선택지는 기존 문구를 우선하고 카탈로그의 나머지 선택지를 뒤에 보충한다."""
+def is_time_field(name: str, dtype: str) -> bool:
+    return bool(re.search(r'DATE|TIME', dtype, re.I) or name.endswith(('_date','_time','_at')))
 
-    merged: dict[str, UiOption] = {}
-    for option in [*preferred, *available]:
-        if option.value not in merged:
-            merged[option.value] = option
-    return list(merged.values())
+
+def schema_catalog(text: str) -> dict[str, dict[str, str]]:
+    """Extract table-local columns, preserving types for numeric/temporal grounding."""
+    result = {}
+    current = None
+    for line in text.splitlines():
+        header = _TABLE_HEADER_LINE.match(line)
+        if header:
+            current = header.group(1)
+            result.setdefault(current,{})
+        signature = re.fullmatch(r'([A-Za-z_][A-Za-z0-9_]*)\((.*)\)',line.strip())
+        if signature:
+            result.setdefault(signature.group(1),{}).update({part.strip().split()[0]: ' '.join(part.strip().split()[1:]) for part in signature.group(2).split(',') if part.strip()})
+        match = re.match(r'\s*-\s+([A-Za-z_][A-Za-z0-9_]*)\s+(TEXT|NUM|INTEGER|INT|REAL|FLOAT|DOUBLE|DATE|DATETIME|TIMESTAMP|VARCHAR|\(no declared type\))',line,re.I)
+        if match and current:
+            result[current][match.group(1)] = match.group(2)
+    return result
+
+
+def reachable_columns(schema: dict, start_tables: list[str]) -> set[str]:
+    """Conservative joins: common typed business identifiers, never generic ocel_id."""
+    selected = set(start_tables)
+    config = load_analysis_semantics()
+    ids = set(_COUNT_FIELD_LABELS) | {field for entity in config.get('entity_roles', {}).values()
+                                    for field in entity.get('identifier_fields', [])}
+    edges = config.get('entity_relationships', [])
+    while True:
+        columns = {c for t in selected for c in schema.get(t,{})}
+        more = {t for t,fields in schema.items() if (set(fields) & columns & ids)}
+        for edge in edges:
+            source, target = edge.get('table'), edge.get('target_table')
+            if (source in schema and target in schema
+                and edge.get('source_field') in schema[source] and edge.get('target_field') in schema[target]
+                and selected & {source, target}):
+                more.update({source, target})
+        if more <= selected:
+            return columns
+        selected |= more
+
+
+def available_semantic_metrics(schema: dict) -> dict:
+    available = {}
+    for name, definition in load_analysis_semantics().get('semantic_metrics',{}).items():
+        table = definition.get('table')
+        if definition.get('kind') not in {'ratio','count'} or table not in schema:
+            continue
+        if definition.get('population'):
+            sources=[definition['population'], definition['subset']]
+            if not all(source['table'] in schema and
+                       {source['key'],source['time_field'],*source.get('filters',{})} <= set(schema[source['table']])
+                       for source in sources):
+                continue
+        required = {definition.get('field'), definition.get('event_field'), definition.get('time_field')}
+        if required <= set(schema[table]):
+            available[name] = definition
+    return available
+
+
+def catalog_snapshot(catalog: PlanOptionCatalog) -> dict:
+    return {name: [o.model_dump(mode='json') for o in getattr(catalog,name)]
+            for name in ('event_types','group_by','count_fields','metric_kinds','numeric_fields')} | {
+        'semantic_metrics':catalog.semantic_metrics, 'schema':catalog.schema,
+    }
 
 
 def _schema_columns(text: str) -> list[str]:
@@ -167,32 +253,11 @@ def _group_candidates(columns: list[str]) -> list[str]:
         root = lowered.removesuffix("_id")
         if lowered == "event_type":
             candidates.append(lowered)
-        elif lowered.endswith("_id") and root in _DIMENSION_LABELS and root != "event":
+        elif lowered.endswith("_id") and root != "event":
             candidates.append(lowered)
         elif lowered.endswith(("_date", "_time", "_at")) and "day" not in candidates:
             candidates.append("day")
     return list(dict.fromkeys(candidates))
-
-
-def _options_with_selected(selected: list[str], available: list[str], *, labeler) -> list[UiOption]:
-    """현재 선택값을 앞에 유지해 가용 값과 합치고 화면 이름을 붙인 선택지로 변환한다."""
-
-    values = list(dict.fromkeys(str(value).strip() for value in [*selected, *available] if str(value).strip()))
-    return [UiOption(value=value, label=labeler(value)) for value in values]
-
-
-def _dedupe_by_label(options: list[UiOption]) -> list[UiOption]:
-    """표시 이름의 공백과 대소문자를 정규화해 같은 이름의 선택지를 하나만 남긴다."""
-
-    unique: list[UiOption] = []
-    seen: set[str] = set()
-    for option in options:
-        key = option.label.strip().casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        unique.append(option)
-    return unique
 
 
 def _event_label(value: str) -> str:

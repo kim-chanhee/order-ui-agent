@@ -6,37 +6,103 @@
   },
   "entity_roles": {
     "order": {
-      "semantic_terms": ["order", "orders", "주문"],
-      "identifier_fields": ["order_id"]
+      "semantic_terms": [
+        "order",
+        "orders",
+        "주문"
+      ],
+      "identifier_fields": [
+        "order_id"
+      ]
     },
     "item": {
-      "semantic_terms": ["item", "items", "물품", "개별 물품"],
-      "identifier_fields": ["item_id", "ocel_object_id"],
-      "display_name_fields": ["product_id", "product_name"],
+      "semantic_terms": [
+        "item",
+        "items",
+        "물품",
+        "개별 물품"
+      ],
+      "identifier_fields": [
+        "item_id",
+        "ocel_object_id"
+      ],
+      "display_name_fields": [
+        "product_id",
+        "product_name"
+      ],
       "display_name_via": "product"
     },
     "product": {
-      "semantic_terms": ["product", "products", "상품", "상품명", "물품명", "물품 명"],
-      "identifier_fields": ["product_id"],
-      "display_name_fields": ["product_id", "product_name"]
+      "semantic_terms": [
+        "product",
+        "products",
+        "상품",
+        "상품명",
+        "물품명",
+        "물품 명"
+      ],
+      "identifier_fields": [
+        "product_id"
+      ],
+      "display_name_fields": [
+        "product_id",
+        "product_name"
+      ]
     },
     "customer": {
-      "semantic_terms": ["customer", "customers", "고객"],
-      "identifier_fields": ["customer_id"]
+      "semantic_terms": [
+        "customer",
+        "customers",
+        "고객"
+      ],
+      "identifier_fields": [
+        "customer_id"
+      ]
+    },
+    "event": {
+      "semantic_terms": [
+        "event",
+        "이벤트"
+      ],
+      "identifier_fields": [
+        "event_id",
+        "failure_event_id"
+      ]
     }
   },
   "attribute_roles": {
-    "display_name": ["product_id", "product_name", "item_name", "name", "label"],
-    "identifier": ["order_id", "item_id", "customer_id", "event_id", "ocel_id", "ocel_object_id"],
-    "price": ["price"],
-    "weight": ["weight"],
-    "change_history": ["ocel_changed_field"]
+    "display_name": [
+      "product_id",
+      "product_name",
+      "item_name",
+      "name",
+      "label"
+    ],
+    "identifier": [
+      "order_id",
+      "item_id",
+      "customer_id",
+      "event_id",
+      "ocel_id",
+      "ocel_object_id"
+    ],
+    "price": [
+      "price"
+    ],
+    "weight": [
+      "weight"
+    ],
+    "change_history": [
+      "ocel_changed_field"
+    ]
   },
   "table_grains": {
     "analysis_failed_delivery_orders": {
       "grain": "failed_delivery_order_event",
       "can_duplicate_entity": true,
-      "preferred_for": ["failed_delivery_order_count"]
+      "preferred_for": [
+        "failed_delivery_order_count"
+      ]
     },
     "analysis_order_item_products": {
       "grain": "order_item",
@@ -47,12 +113,19 @@
       "grain": "failed_order_item",
       "can_duplicate_entity": false,
       "display_name_field": "product_name",
-      "preferred_for": ["failed_delivery_item_names", "failed_delivery_product_names"]
+      "preferred_for": [
+        "failed_delivery_item_names",
+        "failed_delivery_product_names"
+      ]
     },
     "object_items": {
       "grain": "item_attribute_history",
       "can_duplicate_entity": true,
-      "history_fields": ["ocel_changed_field", "price", "weight"]
+      "history_fields": [
+        "ocel_changed_field",
+        "price",
+        "weight"
+      ]
     },
     "analysis_item_events": {
       "grain": "item_event",
@@ -88,7 +161,12 @@
   ],
   "entity_lifecycles": {
     "order": {
-      "semantic_terms": ["order", "orders", "order_id", "주문"],
+      "semantic_terms": [
+        "order",
+        "orders",
+        "order_id",
+        "주문"
+      ],
       "table": "analysis_order_events",
       "id_field": "order_id",
       "time_field": "event_time",
@@ -104,7 +182,12 @@
       "note": "Use this raw event table with event_object when item-level completion is absent from an analysis table."
     }
   },
-  "direct_scope_terms": ["direct", "directly", "직접", "연결된"],
+  "direct_scope_terms": [
+    "direct",
+    "directly",
+    "직접",
+    "연결된"
+  ],
   "relationship_scopes": [
     {
       "name": "event_items_within_selected_orders",
@@ -120,6 +203,155 @@
       "membership_qualifier_field": "ocel_qualifier",
       "membership_qualifier_value": "comprises",
       "rule": "Intersect event-linked items with membership in the selected parent records because one event can be shared by multiple parents."
+    }
+  ],
+  "semantic_metrics": {
+    "shipment_failure_rate": {
+      "kind": "ratio",
+      "label": "배송 실패율",
+      "table": "analysis_shipment_status_orders",
+      "field": "order_id",
+      "event_field": "event_type",
+      "time_field": "status_at",
+      "numerator": "failed_delivery_orders",
+      "denominator": "shipment_orders",
+      "numerator_event": "failed delivery",
+      "population_events": [
+        "failed delivery",
+        "package delivered"
+      ],
+      "group_by": [
+        "customer_id",
+        "courier_id",
+        "day",
+        "month",
+        "year"
+      ],
+      "description": "선택 기간의 배송 이력이 있는 고유 주문 중 배송 실패 이력이 있는 고유 주문의 비율"
+    },
+    "created_order_failure_rate": {
+      "table": "analysis_order_events",
+      "field": "order_id",
+      "event_field": "event_type",
+      "time_field": "event_time",
+      "group_by": [
+        "customer_id",
+        "day",
+        "month",
+        "year"
+      ],
+      "filter_fields": [
+        "customer_id"
+      ],
+      "population": {
+        "table": "analysis_order_events",
+        "key": "order_id",
+        "time_field": "event_time",
+        "filters": {
+          "event_type": "place order"
+        }
+      },
+      "subset": {
+        "table": "analysis_shipment_status_orders",
+        "key": "order_id",
+        "time_field": "status_at",
+        "filters": {
+          "event_type": "failed delivery"
+        }
+      },
+      "kind": "ratio",
+      "label": "생성 주문 기준 배송 실패율",
+      "numerator": "failed_created_orders",
+      "denominator": "created_orders",
+      "numerator_event": "failed delivery",
+      "population_events": [
+        "place order"
+      ],
+      "description": "기간 내 생성된 전체 고유 주문이 분모이며 같은 기간 배송 실패가 발생한 해당 주문이 분자입니다. 배송 이력이 있는 주문을 분모로 하는 shipment_failure_rate와 다릅니다. 고객별 생성 주문 수 조회 뒤 같은 주문 기준의 실패율 요청에는 이 정의를 유지합니다."
+    },
+    "failed_created_order_count": {
+      "table": "analysis_order_events",
+      "field": "order_id",
+      "event_field": "event_type",
+      "time_field": "event_time",
+      "group_by": [
+        "customer_id",
+        "day",
+        "month",
+        "year"
+      ],
+      "filter_fields": [
+        "customer_id"
+      ],
+      "population": {
+        "table": "analysis_order_events",
+        "key": "order_id",
+        "time_field": "event_time",
+        "filters": {
+          "event_type": "place order"
+        }
+      },
+      "subset": {
+        "table": "analysis_shipment_status_orders",
+        "key": "order_id",
+        "time_field": "status_at",
+        "filters": {
+          "event_type": "failed delivery"
+        }
+      },
+      "kind": "count",
+      "label": "생성 주문 중 배송 실패 주문 수",
+      "description": "선택 기간에 생성된 주문을 고객별 모집단으로 유지하며, 그중 같은 기간 배송 실패가 있는 고유 주문을 셉니다. 실패가 없는 고객도 0으로 포함합니다."
+    }
+  },
+  "relationship_scope_aliases": {
+    "order_lifecycle": "entity_lifecycle"
+  },
+  "column_roles": [
+    {
+      "table": "event_object",
+      "field": "ocel_event_id",
+      "entity": "event"
+    },
+    {
+      "table": "event_object",
+      "field": "ocel_object_id",
+      "discriminator": "ocel_qualifier",
+      "entities": {
+        "order": "order",
+        "item": "item",
+        "product": "product",
+        "package": "package",
+        "customer": "customer"
+      }
+    },
+    {
+      "table": "object_object",
+      "field": "ocel_source_id",
+      "discriminator": "ocel_qualifier",
+      "entities": {
+        "comprises": "order",
+        "is a": "item"
+      }
+    },
+    {
+      "table": "object_object",
+      "field": "ocel_target_id",
+      "discriminator": "ocel_qualifier",
+      "entities": {
+        "comprises": "item",
+        "is a": "product"
+      }
+    },
+    {
+      "table": "event_packagedelivered",
+      "field": "ocel_id",
+      "entity": "event"
+    },
+    {
+      "table": "event_faileddelivery",
+      "field": "ocel_id",
+      "entity": "event"
     }
   ]
 }

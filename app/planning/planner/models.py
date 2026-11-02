@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.planning.analysis_models import AnalysisPlan
+from app.planning.analysis_models import AnalysisPlan, FieldMetadata
+from app.planning.ui_models import UiBlock, SuggestedConstraint, InfeasibleCondition
 
 
 ContextField = Literal[
@@ -45,7 +46,7 @@ class PlannerContextCandidate(BaseModel):
     identity_values: dict[str, list[str]] = Field(default_factory=dict)
 
 
-class PlannerDraft(BaseModel):
+class AnalysisDraft(BaseModel):
     """형식이 불완전할 수 있는 LLM의 최초 응답을 수용하는 임시 모델.
 
     계획 필드가 최상위에 배치되거나 일부 응답 필드가 누락된 경우도 우선 받아들인다.
@@ -53,13 +54,49 @@ class PlannerDraft(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    analysis_plan: dict[str, Any] | AnalysisPlan | None = None
-    ui_blocks: list[Any] = Field(default_factory=list)
+    analysis_plan: AnalysisPlan | None = None
     missing_fields: list[str] = Field(default_factory=list)
-    field_metadata: dict[str, Any] = Field(default_factory=dict)
-    suggested_constraints: list[Any] = Field(default_factory=list)
-    infeasible: list[Any] = Field(default_factory=list)
+    field_metadata: dict[str, FieldMetadata] = Field(default_factory=dict, description="Provenance only: status, confidence, source, label, description. Analysis values belong in analysis_plan.")
+    infeasible: list[InfeasibleCondition] = Field(default_factory=list)
     summary: str | None = None
     warnings: list[str] = Field(default_factory=list)
     requires_confirmation: bool = True
     context_resolution: PlannerContextResolution = Field(default_factory=PlannerContextResolution)
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_transport(cls, value: Any) -> Any:
+        # The SDK parses this model before the planner's canonicalization step.
+        # Use the same bounded repair here, then still validate strict UiBlocks.
+        if isinstance(value, dict):
+            from app.planning.planner.response import (
+                _repair_raw_field_metadata, _repair_raw_infeasible, _repair_raw_ui_blocks,
+            )
+            data = dict(value)
+            if cls is AnalysisDraft:
+                data.pop('ui_blocks', None)
+                data.pop('suggested_constraints', None)
+            raw_plan = data.get("analysis_plan")
+            if isinstance(raw_plan, BaseModel):
+                raw_plan = raw_plan.model_dump(mode="json")
+            plan = dict(raw_plan) if isinstance(raw_plan, dict) else {}
+            for container in (data, plan):
+                if isinstance(container.get("field_metadata"), dict):
+                    container["field_metadata"] = _repair_raw_field_metadata(container["field_metadata"])
+            if isinstance(raw_plan, dict):
+                data["analysis_plan"] = plan
+            for key in AnalysisPlan.model_fields:
+                if key in data:
+                    plan[key] = data[key]
+            if isinstance(data.get("ui_blocks"), list):
+                data["ui_blocks"] = _repair_raw_ui_blocks(data["ui_blocks"], plan=plan)
+            if isinstance(data.get("infeasible"), list):
+                data["infeasible"] = _repair_raw_infeasible(data["infeasible"])
+            return data
+        return value
+
+
+class PlannerDraft(AnalysisDraft):
+    """공통 분석 응답에 A2UI의 편집 블록과 추천 조건만 추가한다."""
+    ui_blocks: list[UiBlock] = Field(default_factory=list)
+    suggested_constraints: list[SuggestedConstraint] = Field(default_factory=list)

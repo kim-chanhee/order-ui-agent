@@ -138,6 +138,15 @@ def test_generic_distinct_count_still_requires_a_stable_identifier(state):
     assert "stable *_id" in result
 
 
+def test_explicit_simple_named_filter_cannot_change_its_value_or_operator(state):
+    plan=AnalysisPlan(original_question='결제된 주문',filters=[{'field':'status','operator':'eq','value':'paid'}])
+    checker,_,_=pipeline(state,confirmed_plan=plan)
+    assert 'filter_value_mismatch' in checker.invoke({'sql':"SELECT order_id FROM orders WHERE status='pending'"})
+    assert 'filter_value_mismatch' in checker.invoke({'sql':"SELECT order_id FROM orders WHERE status<>'paid'"})
+    sql="SELECT order_id FROM orders WHERE status='paid'"
+    assert checker.invoke({'sql':sql})==sql
+
+
 def test_result_contract_rejects_missing_requested_display_name(state):
     plan = AnalysisPlan(
         original_question="상품 이름", target_entity="product",
@@ -270,3 +279,17 @@ def test_mode_service_runs_real_agent_tools_and_returns_result(state, monkeypatc
     assert normalized["analysis_execution"]["rows"] == [{"order_count": 3}]
     assert response["a2ui_surface"]
     assert model.bind_tools.return_value.invoke.call_count == 3
+
+
+def test_model_result_preview_does_not_truncate_ui_rows(database,state):
+    with sqlite3.connect(database) as conn:
+        conn.executemany('INSERT INTO orders VALUES (?, ?, ?, ?)',[
+            (str(i),'paid','2026-10-20 10:00:00',f'Product {i}') for i in range(10,60)])
+    checker=sql_tools.make_query_checker_tool(state=state)
+    execute,successes=sql_tools.make_execute_query_tool(state=state)
+    sql='SELECT order_id, product_name FROM orders ORDER BY order_id'
+    assert not checker.invoke({'sql':sql}).startswith('Error:')
+    preview=execute.invoke({'sql':sql})
+    assert 'Model preview: 20 of 54 returned rows' in preview
+    assert len(successes[0][2]) == 54
+    assert any(row['product_name']=='Product 59' for row in successes[0][2])

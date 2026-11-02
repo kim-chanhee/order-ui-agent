@@ -1,11 +1,11 @@
 // 공통 화면 진입점. 계획 화면은 A2UI 모듈로 위임하고 결과는 두 모드에서 표시한다.
 import { renderComponent } from "../components/registry.js";
 import { normalizeAnalysisData } from "../results/result-normalizer.js";
-import { renderResultWithComponents } from "../results/result-renderer.js?v=plan-sentence-redesign";
-import { renderPlanSurface } from "../a2ui/surfaces.js?v=plan-sentence-redesign";
+import { renderResultWithComponents } from "../results/result-renderer.js?v=dynamic-blueprint-v1";
+import { renderPlanSurface } from "../a2ui/surfaces.js?v=dynamic-blueprint-v1";
 import { validateSurface } from "./validation.js";
-import { appState } from "../state.js?v=plan-sentence-redesign";
-import { clone } from "../utils.js?v=plan-sentence-redesign";
+import { appState } from "../state.js?v=dynamic-blueprint-v1";
+import { clone } from "../utils.js?v=dynamic-blueprint-v1";
 
 export function renderSurface(container, surface, handlers = {}) {
   validateSurface(surface);

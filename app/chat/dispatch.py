@@ -98,16 +98,8 @@ def _baseline_analysis_response(
         routing_context=routing_context,
     )
     execution_result = response["execution_result"]
-    if execution_result["kind"] == "clarification":
-        answer = generate_reply(
-            payload.question,
-            purpose="clarify_analysis_plan_without_execution",
-            evidence={"planning_feedback": response["answer"], "selected_results": selected_records},
-            conversation=recent_dialogue(thread_id, payload.input_source),
-        )
-        response["answer"] = answer
-        execution_result["answer"] = answer
-        decision.clarification_question = answer
+    if execution_result["kind"] == "clarification" and not execution_result["normalized_spec"].get("failure_stage"):
+        decision.clarification_question = response['answer']
     execution_result["normalized_spec"]["turn_decision"] = decision.as_payload()
     return response
 
@@ -189,6 +181,9 @@ def _chat_response(
         "original_question": payload.question.strip(),
         "turn_decision": decision.as_payload(),
     }
+    if decision.failure_category:
+        normalized_spec.update(failure_stage='routing', failure_category=decision.failure_category,
+                               retryable=decision.failure_category not in {'provider_quota_exhausted','llm_budget_exceeded'})
     if analysis is not None:
         normalized_spec["analysis_execution"] = analysis
         normalized_spec["execution_route"] = "stored_result"

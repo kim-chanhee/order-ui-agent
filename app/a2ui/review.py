@@ -64,16 +64,13 @@ def schema_review_surface(
         data_model=data_model,
         components=components,
         actions=[
+            A2UIAction(action_id="save_plan", action_type="edit_plan", label="변경 저장"),
             A2UIAction(action_id="confirm_plan", action_type="confirm_plan", label="이 질문으로 실행"),
             A2UIAction(action_id="refine_plan", action_type="refine_plan", label="추가 조건 적용"),
             A2UIAction(action_id="cancel_run", action_type="cancel_run", label="취소"),
         ],
         compatibility={"fallbacks": fallbacks, "supported_components": sorted(supported)},
     )
-
-
-def review_answer(_plan: UiPlan) -> str:
-    return "Answer: 분석 조건과 검토 UI를 만들었습니다. 확인하거나 필요한 값을 수정한 뒤 실행해 주세요."
 
 
 def surface_for_plan(
@@ -85,6 +82,7 @@ def surface_for_plan(
     surface_id: str | None = None,
     plan_id: str | None = None,
     revision: int = 1,
+    expected_revision: int | None = None,
 ) -> dict:
     """Create a review surface and persist the exact plan shown to the user."""
 
@@ -104,5 +102,6 @@ def surface_for_plan(
         surface=payload,
         participant_id=participant_id,
         thread_id=thread_id,
+        expected_revision=expected_revision,
     )
     return payload

@@ -15,8 +15,6 @@ dependencies = [
 
 [project.scripts]
 order-ui-agent = "app.server:main"
-order-ui-agent-experiment-summary = "app.experiment.analysis:main"
-order-ui-agent-eval-accuracy = "app.eval.accuracy_eval:main"
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]

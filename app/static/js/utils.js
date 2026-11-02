@@ -17,10 +17,6 @@ export function clearElement(element) {
   while (element?.firstChild) element.removeChild(element.firstChild);
 }
 
-export function unique(values) {
-  return [...new Set((values || []).filter((item) => item !== undefined && item !== null && item !== ""))];
-}
-
 const BLOCKED_PATH_PARTS = new Set(["__proto__", "prototype", "constructor"]);
 
 export function pathParts(path) {

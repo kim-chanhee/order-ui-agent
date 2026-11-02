@@ -18,3 +18,10 @@ POST /api/review/refine은 계획 수정 후 revision을 올립니다. POST /api
 - [상위 폴더 안내](../README.md)
 - [앱 전체 구조](../../README.md)
 - [프로젝트 소개](../../../README.md)
+
+## 카드 편집 저장
+
+`POST /api/review/update`는 현재 화면의 `plan`, `surface_id`, `plan_id`, `revision`, `question`을 받습니다.
+서버에 저장된 입력 스키마로 편집 권한과 선택값을 검사하고, 이전 revision이 여전히 최신일 때만 원자적으로 새 revision을 저장합니다.
+필수값이 덜 채워진 초안도 저장할 수 있지만 실행은 `/confirm`의 전체 검증을 통과해야 합니다. 저장 요청으로 SQL을 실행하지 않습니다.
+`/refine`도 저장 시 버전 충돌을 검사합니다.

@@ -1,5 +1,5 @@
 // A2UI 결과 화면의 후속 분석 버튼. 표·차트 렌더러와 독립적으로 관리한다.
-import { createElement } from "../../utils.js?v=plan-sentence-redesign";
+import { createElement } from "../../utils.js?v=dynamic-blueprint-v1";
 
 export function renderFollowUpActions(result, options) {
   if (options.showFollowUps === false || typeof options.onFollowUp !== "function" || !result.hasStructuredData) return null;

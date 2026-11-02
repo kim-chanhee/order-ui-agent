@@ -39,6 +39,11 @@ def format_agent_failure_answer(exc: Exception) -> str:
     """
 
     text = str(exc)
+    from app.core.model_errors import quota_exhausted
+    if 'llm_budget_exceeded' in text:
+        return '이번 요청의 모델 호출 한도에 도달해 분석을 중단했습니다. 질문을 나누어 입력해 주세요.'
+    if quota_exhausted(exc):
+        return '모델 API 크레딧이 소진되어 분석하지 못했습니다. API 결제 잔액 또는 연결 설정을 확인해 주세요.'
     if "429" in text:
         return (
             "Answer: LLM API 요청 한도(429)에 걸렸습니다. "
@@ -90,11 +95,14 @@ def execute_schema_question(
     """
 
     try:
-        result = try_fast_sql_answer(
-            question,
-            confirmed_context=confirmed_context,
-            cached_context=cached_context,
-        )
+        from app.execution.registered_metrics import try_registered_metric
+        result = try_registered_metric(confirmed_context)
+        if result is None:
+            result = try_fast_sql_answer(
+                question,
+                confirmed_context=confirmed_context,
+                cached_context=cached_context,
+            )
         if result is None:
             raise RuntimeError("SQL agent produced no result")
     except Exception as exc:
@@ -121,7 +129,7 @@ def execute_schema_question(
         "columns": result.columns,
         "rows": result.rows,
         "metadata": {
-            "execution_route": FAST_PRIMARY,
+            "execution_route": result.execution_route,
             "llm_elapsed_ms": result.elapsed_ms,
             "llm_model_calls": result.model_calls,
             "llm_retry_count": result.model_retries,
@@ -145,7 +153,7 @@ def execute_schema_question(
     return ConfirmedExecutionResult(
         answer=result.answer,
         message="실시간 스키마를 확인해 생성한 읽기 전용 SQL 결과입니다.",
-        provider=FAST_PRIMARY,
+        provider=result.execution_route,
         fallback_used=False,
         fallback_error="",
         analysis_payload=payload,

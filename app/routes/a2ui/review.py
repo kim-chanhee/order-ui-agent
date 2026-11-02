@@ -19,10 +19,10 @@ from app.routes.errors import (
     INTERNAL_ERROR, INVALID_EXPERIMENT_STEP, PLAN_REVISION_CONFLICT,
     PLAN_VALIDATION_ERROR, raise_api_error,
 )
-from app.routes.a2ui.schemas import ConfirmDraftRequest, ConfirmDraftResponse, RefineDraftRequest, RefineDraftResponse
+from app.routes.a2ui.schemas import ConfirmDraftRequest, ConfirmDraftResponse, RefineDraftRequest, RefineDraftResponse, UpdateDraftRequest
 from app.runtime.chat_log import append_chat_csv
 from app.runtime.run_manager import run_cancelable
-from app.runtime.a2ui.surfaces import get_plan_surface
+from app.runtime.a2ui.surfaces import get_plan_surface, SurfaceRevisionConflict
 from app.runtime.state_store import record_execution_result
 
 
@@ -112,6 +112,38 @@ def confirm_review(payload: ConfirmDraftRequest) -> ConfirmDraftResponse:
         raise_api_error(500, INTERNAL_ERROR, "요청 처리 중 오류가 발생했습니다.")
 
 
+@router.post("/api/review/update", response_model=RefineDraftResponse)
+def update_review(payload: UpdateDraftRequest) -> RefineDraftResponse:
+    """Validate server-issued editing permissions and atomically save a new revision."""
+    from app.planning.a2ui.validator import validate_choice_values
+    from app.planning.validator import compute_missing_fields
+
+    try:
+        stored = _validate_surface_revision(payload)
+        payload = _with_authoritative_ui_schema(payload, stored)
+        plan = payload.plan
+        if plan.analysis_plan.original_question.strip() != payload.question.strip():
+            raise ValueError("review plan question does not match the update request")
+        validate_choice_values(plan.analysis_plan, plan.ui_blocks)
+        # Incomplete drafts can be saved, but confirmation still runs full validation.
+        plan.missing_fields = compute_missing_fields(plan.analysis_plan, plan.ui_blocks)
+        revision = payload.revision + 1
+        surface = surface_for_plan(
+            plan, payload.supported_components,
+            participant_id=stored["participant_id"], thread_id=stored["thread_id"] or "",
+            surface_id=payload.surface_id, plan_id=payload.plan_id,
+            revision=revision, expected_revision=payload.revision,
+        )
+        response_plan = plan.model_dump(mode="json")
+        response_plan.update(surface_id=payload.surface_id, plan_id=payload.plan_id, revision=revision)
+        return RefineDraftResponse(plan=response_plan, a2ui_surface=surface,
+                                   surface_id=payload.surface_id, plan_id=payload.plan_id, revision=revision)
+    except SurfaceRevisionConflict as exc:
+        raise_api_error(409, PLAN_REVISION_CONFLICT, str(exc), retryable=True)
+    except ValueError as exc:
+        raise_api_error(422, PLAN_VALIDATION_ERROR, str(exc))
+
+
 @router.post("/api/review/refine", response_model=RefineDraftResponse)
 def refine_review(payload: RefineDraftRequest) -> RefineDraftResponse:
     """추가 조건을 계획에 반영하고 revision을 하나 올린 새 화면을 만든다."""
@@ -138,6 +170,7 @@ def refine_review(payload: RefineDraftRequest) -> RefineDraftResponse:
             surface_id=payload.surface_id,
             plan_id=payload.plan_id,
             revision=revision,
+            expected_revision=payload.revision,
         )
         plan_payload = refined.model_dump(mode="json")
         plan_payload.update(
@@ -172,6 +205,8 @@ def refine_review(payload: RefineDraftRequest) -> RefineDraftResponse:
             refinement_count=payload.refinement_count + 1,
         )
         return response
+    except SurfaceRevisionConflict as exc:
+        raise_api_error(409, PLAN_REVISION_CONFLICT, str(exc), retryable=True)
     except ValueError as exc:
         raise_api_error(422, PLAN_VALIDATION_ERROR, str(exc))
     except HTTPException:
@@ -180,7 +215,7 @@ def refine_review(payload: RefineDraftRequest) -> RefineDraftResponse:
         raise_api_error(500, INTERNAL_ERROR, "추가 조건을 구조화하지 못했습니다.")
 
 
-def _validate_surface_revision(payload: ConfirmDraftRequest | RefineDraftRequest) -> dict:
+def _validate_surface_revision(payload: ConfirmDraftRequest | RefineDraftRequest | UpdateDraftRequest) -> dict:
     """클라이언트가 보낸 surface/plan/revision이 서버에 저장한 최신 화면과 같은지 본다."""
 
     surface = get_plan_surface(payload.surface_id)
@@ -200,22 +235,20 @@ def _validate_surface_revision(payload: ConfirmDraftRequest | RefineDraftRequest
 
 
 def _with_authoritative_ui_schema(
-    payload: ConfirmDraftRequest | RefineDraftRequest,
+    payload: ConfirmDraftRequest | RefineDraftRequest | UpdateDraftRequest,
     stored_surface: dict,
-) -> ConfirmDraftRequest | RefineDraftRequest:
+) -> ConfirmDraftRequest | RefineDraftRequest | UpdateDraftRequest:
     """사용자가 고친 분석 값은 유지하고, UI 스키마는 서버가 준 최신 화면을 쓴다."""
 
     authoritative = UiPlan.model_validate(stored_surface["plan"])
-    from app.planning.a2ui.validator import validate_editable_analysis_plan
+    from app.planning.a2ui.validator import apply_plan_update, refresh_dynamic_plan
 
-    validate_editable_analysis_plan(
-        authoritative.analysis_plan,
-        payload.plan.analysis_plan,
-        authoritative.ui_blocks,
-    )
+    updated_analysis = apply_plan_update(authoritative.analysis_plan, payload.plan.analysis_plan,
+                                         authoritative.ui_blocks, authoritative.ui_state.get("semantic_catalog"))
     plan = payload.plan.model_copy(
         deep=True,
         update={
+            "analysis_plan": updated_analysis,
             "summary": authoritative.summary,
             "ui_state": authoritative.ui_state,
             "ui_blocks": authoritative.ui_blocks,
@@ -225,4 +258,4 @@ def _with_authoritative_ui_schema(
             "requires_confirmation": authoritative.requires_confirmation,
         },
     )
-    return payload.model_copy(update={"plan": plan})
+    return payload.model_copy(update={"plan": refresh_dynamic_plan(plan)})

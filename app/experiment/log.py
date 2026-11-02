@@ -13,12 +13,12 @@ import threading
 from datetime import datetime, timezone
 from typing import Any
 
-from app.data.database import DEFAULT_DB_PATH
+from app.runtime.state_store import get_state_db_path
 
 
 # Data/experiment_interactions.csv에 누적 기록한다.
 # 여러 요청이 동시에 끝날 수 있으므로 파일 쓰기는 lock으로 직렬화한다.
-EXPERIMENT_CSV_PATH = DEFAULT_DB_PATH.parent / "experiment_interactions.csv"
+EXPERIMENT_CSV_PATH = get_state_db_path().parent / "experiment_interactions.csv"
 EXPERIMENT_CSV_LOCK = threading.Lock()
 
 EXPERIMENT_CSV_FIELDS = [

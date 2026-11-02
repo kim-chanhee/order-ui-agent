@@ -26,5 +26,5 @@ export function sendChat(payload) {
 }
 
 export function cancelRun(runId) {
-  return fetch(`/api/runs/${encodeURIComponent(runId)}/cancel`, { method: "POST" });
+  return postJson(`/api/runs/${encodeURIComponent(runId)}/cancel`, {});
 }

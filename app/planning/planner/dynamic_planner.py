@@ -12,16 +12,16 @@ from typing import Any
 
 from langchain_openai import ChatOpenAI
 
-from app.core.llm_settings import resolve_agent_llm_settings
+from app.core.llm_settings import chat_model_kwargs, structured_output_options
+from app.core.model_errors import invoke_with_retry, quota_exhausted
 from app.execution.confirmed_context import resolve_plan_temporal_preview
 from app.planning.analysis_models import AnalysisPlan, FieldMetadata
 from app.planning.schema_context import PlannerSchemaContext, build_planner_schema_context
-from app.planning.ui_models import DynamicPlannerOutput, UiBlock
+from app.planning.ui_models import DynamicPlannerOutput, InfeasibleCondition, UiBlock
 from app.planning.planner.models import (
-    ContextField,
     PlannerContextCandidate,
-    PlannerContextResolution,
     PlannerDraft,
+    AnalysisDraft,
 )
 from app.planning.planner.response import (
     _canonicalize_planner_output,
@@ -68,6 +68,7 @@ def plan_dynamic_analysis(
     previous_plan: AnalysisPlan | None = None,
     context_candidates: list[PlannerContextCandidate] | None = None,
     llm: Any | None = None,
+    include_ui: bool = True,
 ) -> DynamicPlannerOutput:
     """질문과 스키마로 LLM 계획을 생성하고 구조 보정·맥락 상속·의미 검증을 수행한다. 재시도 후에도 실패하면 조건 확인 계획을 반환한다."""
 
@@ -80,15 +81,15 @@ def plan_dynamic_analysis(
             context,
         )
     model = llm or _planner_llm()
-    structured = model.with_structured_output(PlannerDraft, method="function_calling")
-    prompt = _planner_prompt(question, context, context_candidates=candidates)
+    structured = model.with_structured_output(PlannerDraft if include_ui else AnalysisDraft, **structured_output_options())
+    prompt = _planner_prompt(question, context, context_candidates=candidates, include_ui=include_ui)
     last_error: Exception | None = None
     attempt_prompt = prompt
     max_attempts = max(1, int(os.environ.get("AGENT2UI_PLANNER_MAX_ATTEMPTS", "2")))
     for _attempt in range(max_attempts):
         try:
-            result = structured.invoke(attempt_prompt)
-            output = _canonicalize_planner_output(result, question)
+            result = invoke_with_retry(structured,attempt_prompt)
+            output = _canonicalize_planner_output(result, question, include_ui=include_ui)
             context_resolution = _context_resolution_from_result(result)
             output.analysis_plan.original_question = question
             output.analysis_plan.source = "llm_dynamic_planner"
@@ -108,7 +109,7 @@ def plan_dynamic_analysis(
                     *output.warnings,
                     "현재 질문과 연결할 이전 분석 범위가 명확하지 않습니다. 적용된 기간과 대상을 확인해 주세요.",
                 ]
-            output = _ensure_plan_controls(output, context)
+            output = _ensure_plan_controls(output, context, include_ui=include_ui)
             output = _mirror_infeasible_into_unresolved(output)
             output.analysis_plan = resolve_plan_temporal_preview(output.analysis_plan)
             output = _synchronize_temporal_copy(output)
@@ -117,6 +118,8 @@ def plan_dynamic_analysis(
             return output
         except Exception as exc:  # 설정된 시도 횟수 안에서 재시도하고, 모두 실패하면 조건 확인용 계획을 반환한다.
             last_error = exc
+            if quota_exhausted(exc) or not isinstance(exc, (ValueError, TypeError)):
+                break  # Structural feedback cannot repair provider/configuration failures.
             attempt_prompt = (
                 f"{prompt}\n\nThe previous structured response was invalid. Correct only its structure and "
                 f"return the complete envelope again. Validation feedback: {type(exc).__name__}: {exc}"
@@ -126,6 +129,7 @@ def plan_dynamic_analysis(
         safe_clarification_plan(
             question,
             reason=f"structured planner failed: {type(last_error).__name__}: {detail}",
+            validation_feedback=str(last_error)[:600] if isinstance(last_error, ValueError) else None,
         ),
         context,
     )
@@ -134,22 +138,14 @@ def plan_dynamic_analysis(
 def _planner_llm() -> ChatOpenAI:
     """공통 접속 설정과 계획 생성 전용 모델·추론 옵션을 적용한 LLM 클라이언트를 만든다."""
 
-    _provider, base_url, api_key, agent_model, timeout = resolve_agent_llm_settings()
-    model = os.environ.get("AGENT2UI_PLANNER_MODEL", "").strip() or agent_model
-    kwargs: dict[str, Any] = {"model": model, "api_key": api_key, "timeout": timeout, "max_retries": 0}
-    if model.startswith("gpt-5"):
-        default_effort = "none" if model.startswith("gpt-5.6") else "low"
-        kwargs["reasoning_effort"] = os.environ.get(
-            "AGENT2UI_PLANNER_REASONING_EFFORT", default_effort
-        )
-    else:
-        kwargs["temperature"] = 0
-    if base_url:
-        kwargs["base_url"] = base_url
+    model = os.environ.get("AGENT2UI_PLANNER_MODEL", "").strip() or None
+    kwargs = chat_model_kwargs('planner', model=model)
+    if kwargs['model'].startswith('gpt-5'):
+        kwargs['reasoning_effort'] = os.environ.get('AGENT2UI_PLANNER_REASONING_EFFORT', 'low')
     return ChatOpenAI(**kwargs)
 
 
-def safe_clarification_plan(question: str, *, reason: str) -> DynamicPlannerOutput:
+def safe_clarification_plan(question: str, *, reason: str, validation_feedback: str | None = None) -> DynamicPlannerOutput:
     """계획 생성 실패 이유와 미해결 조건을 담고 사용자가 분석 기준을 입력할 대체 계획을 만든다."""
 
     metadata = {"analysis_goal": FieldMetadata(status="needs_confirmation", confidence=0.0, source="llm_inferred")}
@@ -163,10 +159,11 @@ def safe_clarification_plan(question: str, *, reason: str) -> DynamicPlannerOutp
         analysis_plan=analysis,
         ui_blocks=[
             UiBlock(type="review", key="analysis_review", label="분석 요청", props={"display_only": True}),
-            UiBlock(type="textarea", key="analysis_goal", field_path="target_conditions", label="원하는 분석 기준", required=True),
+            UiBlock(type="notice", key="analysis_goal", label="추가 확인 필요", description="기존 채팅창에 원하는 분석 기준을 입력해 주세요."),
         ],
         missing_fields=["analysis_goal"],
         field_metadata=metadata,
         summary="분석 조건을 확인해 주세요.",
+        infeasible=[InfeasibleCondition(label="계획 검증", reason=validation_feedback)] if validation_feedback else [],
         warnings=[reason],
     )

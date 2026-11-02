@@ -1,6 +1,6 @@
 # `app/planning/planner` · 공통 LLM 계획 생성기
 
-질문을 구조화된 분석 계획과 UI 블록으로 바꾸는 모델 호출·응답 복구·문맥 상속·의미 보정을 담당합니다.
+질문을 구조화된 분석 계획으로 바꾸는 공통 모델 호출·응답 복구·문맥 상속·의미 검증을 담당합니다. Baseline은 `AnalysisDraft`와 `include_ui=False`로 화면 없이 계획을 만들고, A2UI는 `PlannerDraft`로 동적 UI와 추천 조건을 추가합니다. UI 검증 실패가 Baseline의 실행 조건이 되지 않습니다.
 
 ## 계획 생성과 후처리 순서
 

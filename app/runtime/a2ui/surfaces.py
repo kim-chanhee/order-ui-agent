@@ -10,6 +10,10 @@ from contextlib import closing
 from app.runtime.state_store import _connect, _json_dumps, _json_loads, _now_iso
 
 
+class SurfaceRevisionConflict(ValueError):
+    """The surface changed while an edit was being validated."""
+
+
 def save_plan_surface(
     *,
     surface_id: str,
@@ -19,12 +23,23 @@ def save_plan_surface(
     surface: dict,
     participant_id: str | None = None,
     thread_id: str | None = None,
+    expected_revision: int | None = None,
 ) -> None:
     """Persist the latest server-issued plan surface revision."""
 
     now = _now_iso()
     with closing(_connect()) as conn:
         with conn:
+            if expected_revision is not None:
+                cursor = conn.execute(
+                    """UPDATE plan_surfaces SET revision = ?, plan_json = ?, surface_json = ?,
+                       updated_at = ? WHERE surface_id = ? AND plan_id = ? AND revision = ?""",
+                    (revision, _json_dumps(plan), _json_dumps(surface), now,
+                     surface_id, plan_id, expected_revision),
+                )
+                if cursor.rowcount != 1:
+                    raise SurfaceRevisionConflict("계획이 변경되었습니다. 최신 화면을 다시 확인해 주세요.")
+                return
             conn.execute(
                 """
                 INSERT INTO plan_surfaces (

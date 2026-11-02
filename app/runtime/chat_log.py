@@ -10,12 +10,13 @@ from __future__ import annotations
 import csv
 import json
 import threading
+import os
 from datetime import datetime, timezone
 from pathlib import Path
-from app.data.database import DEFAULT_DB_PATH
+from app.runtime.state_store import get_state_db_path
 
 
-CHAT_LOG_DIR = DEFAULT_DB_PATH.parent / "logs"
+CHAT_LOG_DIR = Path(os.environ.get('ORDER_UI_LOG_DIR', str(get_state_db_path().parent / 'logs')))
 CHAT_LOG_LOCK = threading.Lock()
 
 CHAT_LOG_FIELDS = [

@@ -125,6 +125,8 @@ def compact_context_record(record: dict) -> dict:
     metadata = execution.get("metadata") or {}
     columns = [str(column) for column in execution.get("columns") or []]
     rows = [row for row in execution.get("rows") or [] if isinstance(row, dict)]
+    from app.execution.analysis_semantics import declared_identifier_fields
+    identifiers = declared_identifier_fields()
     identity_values = {
         column: list(dict.fromkeys(
             str(row[column])
@@ -132,7 +134,7 @@ def compact_context_record(record: dict) -> dict:
             if row.get(column) not in (None, "")
         ))[:CONTEXT_IDENTITY_VALUE_LIMIT]
         for column in columns
-        if column.lower() == "id" or column.lower().endswith("_id")
+        if column in identifiers or column.lower() == "id" or column.lower().endswith("_id")
     }
     normalized = record.get("normalized_spec") or {}
     plan = normalized.get("analysis_plan")
@@ -198,7 +200,7 @@ def remember_dialogue(question: str, response: dict) -> None:
     turn = {
         "question": question.strip()[:DIALOGUE_TEXT_LIMIT],
         "answer": str(response.get("answer") or "")[:DIALOGUE_TEXT_LIMIT],
-        "kind": execution.get("kind"),
+        "kind": 'error' if normalized.get('failure_stage') else execution.get("kind"),
         "turn_decision": normalized.get("turn_decision"),
     }
     turns = [*recent_dialogue(thread_id, input_source), turn][-DIALOGUE_TURN_LIMIT:]

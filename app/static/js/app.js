@@ -1,16 +1,15 @@
 // 공통 앱 진입점: 사용자·채팅·결과 표시를 관리하고 계획 검토는 a2ui/로 위임한다.
-import { sendChat, cancelRun } from "./api.js?v=plan-sentence-redesign";
-import { createReviewController } from "./a2ui/review-controller.js?v=plan-sentence-redesign";
+import { sendChat, cancelRun } from "./api.js?v=dynamic-blueprint-v1";
+import { createReviewController } from "./a2ui/review-controller.js?v=dynamic-blueprint-v1";
 import { initializeDefaultComponents, supportedComponentTypes } from "./components/registry.js";
-import { renderTextComponent, renderNoticeComponent, renderUnknownComponent } from "./components/components.js?v=plan-sentence-redesign";
-import { registerReviewComponents } from "./components/a2ui/register.js?v=plan-sentence-redesign";
-import { normalizeAnalysisResult } from "./results/result-normalizer.js";
+import { renderTextComponent, renderNoticeComponent, renderUnknownComponent } from "./components/components.js?v=dynamic-blueprint-v1";
+import { registerReviewComponents } from "./components/a2ui/register.js?v=dynamic-blueprint-v1";
 import {
-  renderAnalysisResult, renderAnswerBlocks, renderResultBarChartComponent,
+  renderAnswerBlocks, renderResultBarChartComponent,
   renderResultTableComponent,
-} from "./results/result-renderer.js?v=plan-sentence-redesign";
-import { renderSurface } from "./surfaces/runtime.js?v=plan-sentence-redesign";
-import { modeDataFor } from "./modes/mode-data.js?v=plan-sentence-redesign";
+} from "./results/result-renderer.js?v=result-visibility-v2";
+import { renderSurface } from "./surfaces/runtime.js?v=dynamic-blueprint-v1";
+import { modeDataFor } from "./modes/mode-data.js?v=dynamic-blueprint-v1";
 import {
   collectUserProfile,
   isValidParticipantId,
@@ -18,9 +17,9 @@ import {
   normalizeParticipantId,
   setUserIdentity,
   storeParticipantId,
-} from "./modes/user-mode-data.js?v=plan-sentence-redesign";
-import { appState, beginRun, currentThreadId, endRun } from "./state.js?v=plan-sentence-redesign";
-import { createElement } from "./utils.js?v=plan-sentence-redesign";
+} from "./modes/user-mode-data.js?v=dynamic-blueprint-v1";
+import { appState, beginRun, currentThreadId, endRun } from "./state.js?v=dynamic-blueprint-v1";
+import { createElement } from "./utils.js?v=dynamic-blueprint-v1";
 
 const dom = {
   modeGate: document.querySelector("#mode-gate"),
@@ -111,14 +110,31 @@ function bindUi() {
   dom.stop?.addEventListener("click", async () => {
     const runId = appState.activeRunId;
     if (!runId) return;
-    await cancelRun(runId).catch(() => {});
-    endRun(runId);
-    setLoading(false);
-    addMessage("meta", "요청 중단을 보냈습니다.");
+    dom.stop.disabled = true;
+    try {
+      await cancelRun(runId);
+      if (appState.activeRunId === runId) {
+        appState.cancelledRunId = runId;
+        addMessage("meta", "요청 중단을 보냈습니다.");
+      }
+    } catch (error) {
+      if (appState.activeRunId === runId) {
+        dom.stop.disabled = false;
+        addMessage("error", error.message || "중단 요청을 보내지 못했습니다.");
+      }
+    }
   });
 }
 
 async function ask(question) {
+  if (appState.isLoading) return;
+  if (reviewController.isReviewing()) {
+    addMessage("user", question);
+    const applied = await reviewController.refineFromChat(question);
+    if (applied) dom.question.value = "";
+    return;
+  }
+  const inputSource = appState.inputSource;
   const runId = beginRun();
   setLoading(true);
   addMessage("user", question);
@@ -126,57 +142,43 @@ async function ask(question) {
   dom.question.value = "";
   try {
     const modeData = modeDataFor(appState.appMode);
-    const data = modeData.applyResponse(await sendChat(modeData.buildRequest({
+    const response = await sendChat(modeData.buildRequest({
       question,
       thread_id: currentThreadId(),
-      input_source: appState.inputSource,
+      input_source: inputSource,
       run_id: runId,
       supported_components: supportedComponents(),
-    }, appState)), appState, appState.inputSource);
-    if (!endRun(runId)) return;
-    loading.remove();
+    }, appState));
+    if (appState.activeRunId !== runId || appState.cancelledRunId === runId) return;
+    const data = modeData.applyResponse(response, appState, inputSource);
     if (data.a2ui_surface?.surface_type === "plan") {
       reviewController.showPlan(question, data);
     } else if (data.a2ui_surface?.surface_type === "result") {
       renderResultMessage(data.a2ui_surface);
     } else if (data.a2ui_surface) {
       throw new Error("지원하지 않는 Surface 응답입니다.");
-    } else if (data.plan) {
-      reviewController.showPlan(question, data);
-    } else if (data.execution_result && data.execution_result.kind !== "conversation") {
-      console.warn("Legacy result response without a2ui_surface");
-      renderLegacyResultMessage(data);
     } else {
       addMessage("bot", data.answer || "응답을 표시할 수 없습니다.");
     }
   } catch (error) {
-    if (appState.activeRunId === runId) endRun(runId);
-    loading.remove();
+    if (appState.activeRunId !== runId || appState.cancelledRunId === runId) return;
     addMessage("error", error.message || "요청 처리 중 오류가 발생했습니다.");
   } finally {
-    if (appState.activeRunId === runId) endRun(runId);
-    setLoading(false);
+    loading.remove();
+    if (endRun(runId)) setLoading(false);
   }
 }
 
 function renderResultMessage(surface) {
   const container = addMessage("bot", "");
+  container.classList.add("result-message");
   const showFollowUps = surface.data_model?.input_source === "agent2ui";
   renderSurface(container, surface, {
     showFollowUps,
     onFollowUp: showFollowUps ? queueFollowUpQuestion : undefined,
   });
-}
-
-function renderLegacyResultMessage(data) {
-  const container = addMessage("bot", "");
-  const result = normalizeAnalysisResult(data);
-  appState.currentResult = result;
-  const showFollowUps = data.input_source === "agent2ui";
-  renderAnalysisResult(result, container, {
-    showFollowUps,
-    onFollowUp: showFollowUps ? queueFollowUpQuestion : undefined,
-  });
+  // Wait for rendering and the loading message removal before positioning the result.
+  requestAnimationFrame(() => container.scrollIntoView({ block: "start", behavior: "smooth" }));
 }
 
 function queueFollowUpQuestion(question) {
@@ -207,13 +209,16 @@ function setInputSource(inputSource) {
 function setLoading(isLoading) {
   appState.isLoading = isLoading;
   dom.submit.disabled = isLoading;
-  dom.stop.disabled = !isLoading;
+  dom.stop.disabled = !isLoading || !appState.activeRunId;
+  dom.sourceButtons.forEach((button) => { button.disabled = isLoading || reviewController.isReviewing(); });
 }
 
 function setPlanReviewActive(isActive) {
-  dom.chatForm.hidden = isActive;
+  dom.chatForm.hidden = false;
+  dom.question.placeholder = isActive ? "수정할 조건을 입력하세요. 예: 최근 30일로 변경" : "예: 가장 최근 데이터 10개를 보여줘";
+  dom.submit.textContent = isActive ? "조건 수정" : "질문하기";
   dom.sourceButtons.forEach((button) => {
-    button.disabled = isActive;
+    button.disabled = isActive || appState.isLoading;
   });
 }
 

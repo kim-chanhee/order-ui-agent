@@ -1,4 +1,4 @@
-import { clone } from "../../utils.js?v=plan-sentence-redesign";
+import { clone } from "../../utils.js?v=dynamic-blueprint-v1";
 
 const ALIASES = {
   event_filter: "multi_select", group_by: "multi_select", metric: "option_cards",
@@ -66,5 +66,4 @@ export function normalizeUiPlan(rawUiPlan = {}) {
   };
 }
 
-export function normalizePlanDependencies(plan) { return normalizeAnalysisPlan(plan); }
 export function normalizeGroupBy(value) { return Array.isArray(value) ? [...new Set(value.filter(Boolean))] : []; }

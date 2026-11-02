@@ -172,6 +172,8 @@ def _ground_followup_identifier_filters(
         grounded_values.update(str(value).casefold() for value in row.values() if value is not None)
 
     kept: list[FilterSpec] = []
+    from app.execution.analysis_semantics import declared_identifier_fields
+    identifiers = {field.casefold() for field in declared_identifier_fields()}
     for item in plan.filters:
         field = item.field.strip().casefold()
         metadata = plan.field_metadata.get(item.field) or plan.field_metadata.get("filters")
@@ -181,7 +183,7 @@ def _ground_followup_identifier_filters(
         )
         values = item.value if isinstance(item.value, list) else [item.value]
         candidate_ids = [str(value).strip().casefold() for value in values if value is not None]
-        is_identifier_filter = field == "id" or field.endswith("_id") or field.endswith("_ids")
+        is_identifier_filter = field in identifiers or field == "id" or field.endswith("_id") or field.endswith("_ids")
         has_evidence = all(value in grounded or value in grounded_values for value in candidate_ids)
         if is_identifier_filter and candidate_ids and not explicitly_grounded and not has_evidence:
             continue

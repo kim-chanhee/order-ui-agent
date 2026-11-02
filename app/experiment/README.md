@@ -6,7 +6,6 @@
 
 | 파일 | 역할 |
 |---|---|
-| [analysis.py](analysis.py) | 상호작용 CSV를 읽고 입력 방식별 지표·단계를 요약하는 CLI. |
 | [context.py](context.py) | 채팅·계획 검토에서 공유하는 활성 실험 과제와 대화 식별자 조회. |
 | [interactions.py](interactions.py) | 두 모드의 채팅 결과를 공통 실험 상호작용 기록으로 변환한다. |
 | [log.py](log.py) | 실험 상호작용을 공통 필드의 CSV로 기록. |
@@ -16,7 +15,7 @@
 
 ## 연결 흐름
 
-routes/experiment.py가 세션과 단계를 제어합니다. 채팅은 interactions.py, 확정 실행은 a2ui/interactions.py에서 기록합니다. analysis.py는 수집된 CSV를 요약합니다. 실제 참가자 자료는 로컬에서 관리합니다.
+routes/experiment.py가 세션과 단계를 제어합니다. 채팅은 interactions.py, 확정 실행은 a2ui/interactions.py에서 기록합니다. 연구 설문·행동 로그 분석은 [Data/A2UI의 노트북](../../Data/A2UI/README.md)에서 수행합니다. 실제 참가자 자료는 로컬에서 관리합니다.
 
 ## 하위 폴더 안내
 

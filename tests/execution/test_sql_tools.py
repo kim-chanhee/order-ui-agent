@@ -147,6 +147,28 @@ def test_explicit_simple_named_filter_cannot_change_its_value_or_operator(state)
     assert checker.invoke({'sql':sql})==sql
 
 
+@pytest.mark.parametrize("predicate", ["status = 'pending'", "status <> 'paid'"])
+def test_date_modifiers_do_not_bypass_business_filter_contract(state, predicate):
+    plan = AnalysisPlan(
+        original_question="결제된 주문",
+        filters=[{"field": "status", "operator": "eq", "value": "paid"}],
+    )
+    checker, executor, successes = pipeline(
+        state, confirmed_plan=plan, question="2026-10-20 하루 전부터 결제된 주문"
+    )
+    valid = (
+        "SELECT order_id FROM orders WHERE status = 'paid' "
+        "AND created_at >= date('2026-10-20', '-1 days')"
+    )
+    assert checker.invoke({"sql": valid}) == valid
+    invalid = valid.replace("status = 'paid'", predicate)
+    assert "filter_value_mismatch" in checker.invoke({"sql": invalid})
+    # 실행 직전에도 현재 계획의 업무 조건을 다시 검사한다.
+    plan.filters[0].value = "pending"
+    assert "filter_value_mismatch" in executor.invoke({"sql": valid})
+    assert not successes
+
+
 def test_result_contract_rejects_missing_requested_display_name(state):
     plan = AnalysisPlan(
         original_question="상품 이름", target_entity="product",

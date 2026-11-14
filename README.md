@@ -101,13 +101,3 @@ uv run pytest tests/execution -q
 | 공통·모드별 코드와 요청 경로 | [백엔드](app/README.md) · [API](app/routes/README.md) |
 | 화면 상태와 컴포넌트 구성 | [프론트엔드](app/static/README.md) |
 | 테스트가 확인하는 조건 | [실행 검증](tests/execution/README.md) |
-
-## 앞으로 보완할 부분
-
-- 브라우저에서 질문 → 계획 수정 → 실행까지의 짧은 시연 영상
-- 실제 모델 기반 평가셋·측정 조건·실패 예시 공개
-- 프론트엔드 및 전체 사용자 흐름 자동 검증
-
-위 항목은 향후 작업이며 현재 구현·검증된 기능과 구분합니다.
-
-GPT API 연결·호출 상한·사용량 기록과 최신 검증 상태는 [GPT 운영 안내](docs/gpt-operation.md)를 참고하세요.

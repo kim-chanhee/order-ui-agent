@@ -51,6 +51,11 @@ Agent가 다음 행동을 선택하고 Tool이 검증·실행을 담당합니다
 
 [SQL AST 및 계약 검증](sql/README.md)에서는 AST·CTE·Predicate의 차이, 계획과 SQL의 실행 계약, 그룹·정렬·LIMIT·필터 검증, COUNT(*)와 COUNT(DISTINCT)의 집계 단위, 등록 비율 지표의 분자·분모, 라이브 스키마 참조 검사와 현재 검증 범위를 설명합니다.
 
+## Schema Retrieval 및 DB 구조 탐색 상세
+
+- [스키마 검색과 관계 탐색](tools/README.md#schema-retrieval-질문과-관련된-스키마-우선-검색): 주요 함수, 관련도 점수, n-gram·문자열 유사도, 그래프의 최단 연결 경로, 상세 메타데이터와 fingerprint.
+- [JOIN의 의미적 유효성](semantics/README.md#join의-의미적-유효성): 식별자 역할 설정, CTE 투영 추적, 역할 충돌 차단 조건과 검증 한계.
+
 ## 함께 읽기
 
 - [앱 전체 구조](../README.md)

@@ -76,7 +76,7 @@ def agent_cache_context(thread_id: str | None, question: str = "") -> dict:
         tables = metadata.get("schema_tables")
         if sql and isinstance(tables, list):
             try:
-                from app.execution.sql_tools import extract_referenced_tables
+                from app.execution.tools.sql_tools import extract_referenced_tables
 
                 referenced = sorted(extract_referenced_tables(sql))
             except Exception:
@@ -88,7 +88,7 @@ def agent_cache_context(thread_id: str | None, question: str = "") -> dict:
             break
     if question.strip():
         try:
-            from app.execution.schema_tools import schema_fingerprint
+            from app.execution.tools.schema_tools import schema_fingerprint
 
             examples = get_similar_sql_examples(
                 question,
@@ -125,7 +125,7 @@ def compact_context_record(record: dict) -> dict:
     metadata = execution.get("metadata") or {}
     columns = [str(column) for column in execution.get("columns") or []]
     rows = [row for row in execution.get("rows") or [] if isinstance(row, dict)]
-    from app.execution.analysis_semantics import declared_identifier_fields
+    from app.execution.semantics.analysis_semantics import declared_identifier_fields
     identifiers = declared_identifier_fields()
     identity_values = {
         column: list(dict.fromkeys(

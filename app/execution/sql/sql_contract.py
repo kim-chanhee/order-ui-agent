@@ -3,7 +3,7 @@
 파싱·AST 추출은 sql_ast, 스키마 검사는 sql_schema_contract,
 집계·등록 지표 검사는 sql_metric_contract가 담당한다.
 이 모듈은 계획의 그룹·정렬·개수 제한·필터·설정된 업무 조건을 검사한다.
-기존 호출자를 위해 공개 예외와 AST 유틸리티의 import 경로를 유지한다.
+호출자가 계약 예외와 AST 유틸리티를 함께 가져올 수 있도록 공개 이름을 제공한다.
 DB 조회와 변경 차단은 각각 sql_builder와 sql_safety가 담당한다.
 """
 
@@ -15,18 +15,18 @@ from typing import Any
 
 from sqlglot import exp
 
-from app.execution.analysis_semantics import load_analysis_semantics
-from app.execution.join_contract import validate_join_roles
-from app.execution.registered_metrics import compile_registered_metric
-from app.execution.sql_ast import (
+from app.execution.semantics.analysis_semantics import load_analysis_semantics
+from app.execution.semantics.join_contract import validate_join_roles
+from app.execution.semantics.registered_metrics import compile_registered_metric
+from app.execution.sql.sql_ast import (
     SqlContractViolation,
     extract_filter_literals,
     extract_physical_tables,
     parse_sql_ast,
     physical_tables_from_tree,
 )
-from app.execution.sql_metric_contract import validate_metrics, validate_semantic_metrics
-from app.execution.sql_schema_contract import validate_schema_references
+from app.execution.sql.sql_metric_contract import validate_metrics, validate_semantic_metrics
+from app.execution.sql.sql_schema_contract import validate_schema_references
 
 __all__ = [
     "SqlContractViolation",

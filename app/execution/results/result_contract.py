@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from app.execution.analysis_semantics import load_analysis_semantics
+from app.execution.semantics.analysis_semantics import load_analysis_semantics
 
 
 @dataclass(frozen=True)

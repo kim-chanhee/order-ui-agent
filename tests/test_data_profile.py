@@ -38,9 +38,19 @@ def test_invalid_profile_does_not_partially_replace_environment(tmp_path,monkeyp
 
 
 def test_metadata_edits_are_not_hidden_by_path_only_cache(tmp_path,monkeypatch):
-    from app.execution.analysis_semantics import load_analysis_semantics
+    from app.execution.semantics.analysis_semantics import load_analysis_semantics
     path=tmp_path/'semantics.json';monkeypatch.setenv('ANALYSIS_SEMANTICS_PATH',str(path))
     path.write_text('{"entity_roles":{}}')
     assert load_analysis_semantics()['entity_roles']=={}
     path.write_text('{"entity_roles":{"books":{"identifier_fields":["book_key"]}}}')
     assert 'books' in load_analysis_semantics()['entity_roles']
+
+
+def test_schema_summary_default_stays_at_project_root_after_tools_move(monkeypatch):
+    from pathlib import Path
+    from app.execution.tools import schema_tools
+
+    monkeypatch.delenv('SCHEMA_SUMMARY_PATH', raising=False)
+    expected = Path(__file__).resolve().parents[1] / 'Data/docs/schema_summary.md'
+    assert schema_tools._schema_summary_path() == expected
+    assert schema_tools._read_semantic_text() == expected.read_text(encoding='utf-8')

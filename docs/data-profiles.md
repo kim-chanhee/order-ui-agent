@@ -69,9 +69,9 @@ DATA_PROFILE_PATH=Data/profiles/my-data/profile.json uv run order-ui-agent
 | 프로필 로딩·검사 | `app/core/data_profile.py`, `app/core/startup_checks.py` |
 | 질문의 분석 계획·UI 생성 | `app/planning/planner/` |
 | 선택지·허용된 값 | `app/planning/option_catalog.py` |
-| 관계 키 검사 | `app/execution/join_contract.py` |
-| 설정 기반 모집단 지표 | `app/execution/registered_metrics.py` |
-| 일반 SQL 생성 | `app/execution/fast_sql_agent.py` |
+| 관계 키 검사 | `app/execution/semantics/join_contract.py` |
+| 설정 기반 모집단 지표 | `app/execution/semantics/registered_metrics.py` |
+| 일반 SQL 생성 | `app/execution/agent/fast_sql_agent.py` |
 | SQL·결과 검증 | `sql_contract.py`, `result_contract.py`, `sql_tools.py` |
 | 후속 질문과 실패 처리 | `app/chat/` |
 

@@ -18,7 +18,7 @@ from app.chat.responses import planning_failure_result
 from app.chat.thread_context import agent_cache_context, contextual_request, compact_context_record, context_record_id
 from app.execution.confirmed_execution import execute_schema_question
 from app.execution.confirmed_context import ConfirmedAnalysisContext
-from app.execution.result_payload import _failed_payload
+from app.execution.results.result_payload import _failed_payload
 from app.planning.service import build_review_plan
 from app.routes.schemas import ChatRequest, ChatResponse
 

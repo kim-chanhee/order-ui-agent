@@ -23,23 +23,23 @@ from langchain_openai import ChatOpenAI
 from app.core.model_errors import classify_model_error
 from app.core.llm_settings import resolve_agent_llm_settings, chat_model_kwargs
 from app.execution.confirmed_context import ConfirmedAnalysisContext
-from app.execution.schema_tools import (
+from app.execution.tools.schema_tools import (
     discover_relationships,
     get_semantic_context,
     get_table_schema,
     list_tables,
     retrieve_relevant_schema,
 )
-from app.execution.sql_builder import _format_generic_sql_rows, explain_query_plan
-from app.execution.sql_contract import SqlContractViolation, validate_sql_contract
-from app.execution.sql_tools import (
+from app.execution.sql.sql_builder import _format_generic_sql_rows, explain_query_plan
+from app.execution.sql.sql_contract import SqlContractViolation, validate_sql_contract
+from app.execution.tools.sql_tools import (
     SqlToolState,
     make_execute_query_tool,
     make_query_checker_tool,
     normalize_sql,
 )
-from app.execution.temporal_policy import RELATIVE_TIME_POLICY
-from app.execution.analysis_semantics import semantic_execution_context
+from app.execution.semantics.temporal_policy import RELATIVE_TIME_POLICY
+from app.execution.semantics.analysis_semantics import semantic_execution_context
 
 
 FAST_SQL_TIMEOUT_SECONDS = float(os.environ.get("FAST_SQL_TIMEOUT_SECONDS", "20"))

@@ -172,7 +172,7 @@ def _ground_followup_identifier_filters(
         grounded_values.update(str(value).casefold() for value in row.values() if value is not None)
 
     kept: list[FilterSpec] = []
-    from app.execution.analysis_semantics import declared_identifier_fields
+    from app.execution.semantics.analysis_semantics import declared_identifier_fields
     identifiers = {field.casefold() for field in declared_identifier_fields()}
     for item in plan.filters:
         field = item.field.strip().casefold()

@@ -11,7 +11,7 @@
 - `app/chat/turn_router.py`, `app/chat/dispatch.py`의 요청 분류·계획 생성 분기
 - `app/planning/planner/`의 API 클라이언트, 응답 파싱, 보정, 재시도
 - `app/planning/a2ui/refinement.py`의 자연어 수정 호출
-- `app/execution/fast_sql_agent.py`의 확정 후 SQL 에이전트 클라이언트
+- `app/execution/agent/fast_sql_agent.py`의 확정 후 SQL 에이전트 클라이언트
 - 테스트 대역과 실제 SDK 응답 파서 사이의 차이
 
 현재 설정은 provider=openai, model=gpt-4.1-mini, timeout=25초, 사용자 지정 base URL 없음, 키 존재, 동적 플래너 활성화이다. 플래너 모델은 별도 `AGENT2UI_PLANNER_MODEL`이 있으면 이를 우선 사용한다.

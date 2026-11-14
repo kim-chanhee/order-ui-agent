@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.execution.analysis_semantics import load_analysis_semantics
+from app.execution.semantics.analysis_semantics import load_analysis_semantics
 from app.planning.ui_models import DynamicPlannerOutput
 
 

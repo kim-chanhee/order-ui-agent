@@ -20,7 +20,7 @@ from app.chat.thread_context import agent_cache_context, compact_context_record,
 from app.chat.turn_router import analysis_records
 from app.execution.confirmed_execution import execute_schema_question
 from app.execution.confirmed_context import ConfirmedAnalysisContext
-from app.execution.result_payload import _failed_payload
+from app.execution.results.result_payload import _failed_payload
 from app.planning.analysis_models import AnalysisPlan
 from app.planning.ui_models import UiPlan
 from app.planning.a2ui.validator import validate_ui_plan

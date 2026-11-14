@@ -12,8 +12,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from app.execution.semantic_aliases import canonical_value_labels
-from app.execution.analysis_semantics import load_analysis_semantics, declared_identifier_fields
+from app.execution.semantics.semantic_aliases import canonical_value_labels
+from app.execution.semantics.analysis_semantics import load_analysis_semantics, declared_identifier_fields
 from app.planning.analysis_models import AnalysisPlan
 from app.planning.ui_models import UiOption
 

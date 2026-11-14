@@ -8,7 +8,7 @@
 
 ## 분리 원칙
 
-각 기능 폴더 바로 아래에는 Baseline과 A2UI가 함께 사용하는 코드를 두고, A2UI 모드 전용 코드는 해당 폴더의 `a2ui/` 하위에 둔다. Baseline 전용 실행 응답은 `execution/baseline/`에 둔다. API의 A2UI 모드 값은 `agent2ui`이다.
+각 기능 폴더에는 Baseline과 A2UI가 함께 사용하는 코드를 두고, A2UI 모드 전용 코드는 해당 폴더의 `a2ui/` 하위에 둔다. Baseline 전용 실행 응답은 `execution/baseline/`에 둔다. execution의 공통 구현은 agent/, tools/, sql/, semantics/, results/로 역할별로 나눈다. API의 A2UI 모드 값은 `agent2ui`이다.
 
 파일 이름보다 실제 호출 경로를 기준으로 분류한다. Baseline도 같은 분석 계획 생성기와 SQL 실행기를 사용하며, 조회 결과는 두 모드 모두 A2UI 화면 형식으로 전달한다. 따라서 UI나 confirmed라는 이름이 있다는 이유만으로 A2UI 전용 코드로 분류하지 않는다.
 
@@ -49,8 +49,19 @@ app/
     a2ui/
       review.py, refinement.py, models.py, validator.py
   execution/
-    confirmed_execution.py, confirmed_context.py, result_payload.py
-    fast_sql_agent.py, sql_tools.py, sql_safety.py, ...
+    confirmed_execution.py, confirmed_context.py
+    agent/       # LLM 추론과 Tool 호출 제어
+      fast_sql_agent.py
+    tools/       # DB 스키마 탐색과 SQL 도구
+      schema_tools.py, sql_tools.py
+    sql/         # SQL 구문 분석·생성·검증
+      sql_ast.py, sql_builder.py, sql_contract.py, sql_safety.py
+      sql_schema_contract.py, sql_metric_contract.py
+    semantics/   # 업무 의미와 집계 규칙
+      analysis_semantics.py, semantic_aliases.py, registered_metrics.py
+      join_contract.py, temporal_policy.py
+    results/     # 실행 결과의 검증과 응답 구성
+      result_contract.py, result_payload.py
     baseline/
       service.py
     a2ui/
@@ -95,7 +106,7 @@ app/
 - `planning/ui_models.py`: Baseline 계획 생성도 `UiPlan`과 `DynamicPlannerOutput`을 사용한다. 자연어 추가 조건 전용 `RefinementPatch`만 `planning/a2ui/models.py`로 분리한다.
 - `planning/planner/`: 두 모드가 공유하는 LLM 계획 생성기다. 외부 서비스는 패키지에서 `plan_dynamic_analysis`와 맥락 모델을 가져온다. `dynamic_planner.py`는 호출·후처리 순서·재시도·대체 계획을 담당하고, 세부 로직은 `models.py`(응답·맥락 모델), `prompt.py`(프롬프트), `response.py`(응답 복구), `controls.py`(UI 구성), `context.py`(후속 조건 상속), `semantics.py`(분석 의미 보정·검증)에 둔다. 검토 중 조건 수정은 별도 `a2ui/refinement.py`에 둔다.
 - `execution/confirmed_context.py`, `confirmed_execution.py`: Baseline도 내부 계획을 실행 문맥으로 만들어 같은 실행기를 호출한다. confirmed는 사용자 확인 화면의 유무를 뜻하지 않는다.
-- `execution/sql_tools.py`: 추가 LLM 호출 없이 SQL을 검사한다. 검사 도구와 실행 도구는 `_validate_execution_sql`의 공통 검증 순서를 공유하며, 실행 직전에도 재검증한다. 날짜 상한이 교정된 SQL은 원래 SQL과의 매핑을 보존해 실행한다. 생성 SQL은 도구 인자로 받으므로 텍스트 응답에서 SQL을 추출하는 별도 모듈은 사용하지 않는다.
+- `execution/tools/sql_tools.py`: 추가 LLM 호출 없이 SQL을 검사한다. 검사 도구와 실행 도구는 `_validate_execution_sql`의 공통 검증 순서를 공유하며, 실행 직전에도 재검증한다. 날짜 상한이 교정된 SQL은 원래 SQL과의 매핑을 보존해 실행한다. 생성 SQL은 도구 인자로 받으므로 텍스트 응답에서 SQL을 추출하는 별도 모듈은 사용하지 않는다.
 - `runtime/state_store.py`: 두 모드가 공유하는 DB 연결과 테이블 생성을 유지한다. 검토 화면 전용 저장·조회 함수만 하위 폴더로 분리한다.
 - `runtime/run_manager.py`: 채팅과 A2UI 확정 실행을 같은 워커 방식으로 관리한다. 확정 요청의 모델 검증과 서비스 연결은 `runtime/a2ui/worker.py`에 위임한다. 현재 활성 실험 채팅과 계획 수정은 이 워커를 사용하지 않는다.
 - `routes/schemas.py`: 공통 채팅·실험 모델과 `ClientMetrics`를 제공한다. 계획 확정·수정 모델은 `routes/a2ui/schemas.py`에 둔다.

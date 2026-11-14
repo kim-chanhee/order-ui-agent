@@ -233,7 +233,7 @@ def validate_dynamic_semantics(plan: AnalysisPlan, catalog: dict, *, allow_incom
         if item.field not in columns:
             raise ValueError('스키마에 없는 필터 필드: '+item.field)
     if plan.relationship_scope:
-        from app.execution.analysis_semantics import allowed_relationship_scopes
+        from app.execution.semantics.analysis_semantics import allowed_relationship_scopes
         if plan.relationship_scope not in allowed_relationship_scopes():
             raise ValueError('검증되지 않은 엔터티 연결 관계입니다: '+plan.relationship_scope)
 

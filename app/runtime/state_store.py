@@ -298,7 +298,7 @@ def _record_verified_sql_example(
     ):
         return
     try:
-        from app.execution.sql_tools import extract_referenced_tables
+        from app.execution.tools.sql_tools import extract_referenced_tables
 
         tables = sorted(extract_referenced_tables(sql))
     except Exception:

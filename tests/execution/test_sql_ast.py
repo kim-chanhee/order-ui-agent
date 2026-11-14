@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.execution.sql_ast import (
+from app.execution.sql.sql_ast import (
     extract_filter_literals,
     extract_physical_tables,
     parse_sql_ast,

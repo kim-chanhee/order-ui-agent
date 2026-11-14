@@ -123,7 +123,7 @@ def validate_relative_time_sql(
         # schema.  Without this fallback a model can anchor "recent 60 days" to
         # MAX() of an already-filtered subject table (for example the latest
         # failed-delivery event), silently moving the whole window backwards.
-        from app.execution.analysis_semantics import timeline_anchor
+        from app.execution.semantics.analysis_semantics import timeline_anchor
 
         expected_anchor = timeline_anchor()
     if expected_anchor and (

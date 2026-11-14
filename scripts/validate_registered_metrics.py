@@ -15,7 +15,7 @@ apply_data_profile()
 
 from app.execution.confirmed_context import ConfirmedAnalysisContext
 from app.execution.confirmed_execution import execute_schema_question
-from app.execution.sql_safety import create_read_only_connection
+from app.execution.sql.sql_safety import create_read_only_connection
 from app.data.database import DEFAULT_DB_PATH
 from app.planning.analysis_models import AnalysisPlan, MetricSpec
 

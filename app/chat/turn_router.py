@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.chat.thread_context import compact_context_record, context_record_id
 from app.core.llm_settings import chat_model_kwargs, structured_output_options
-from app.execution.semantic_aliases import alias_grounding_context
+from app.execution.semantics.semantic_aliases import alias_grounding_context
 from app.chat.responses import generate_reply
 from app.core.model_errors import invoke_with_retry, quota_exhausted
 

@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.execution.confirmed_context import ConfirmedAnalysisContext
-from app.execution.fast_sql_agent import classify_failure_message, try_fast_sql_answer
+from app.execution.agent.fast_sql_agent import classify_failure_message, try_fast_sql_answer
 
 
 FAST_PRIMARY = "fast_llm_sql"
@@ -95,7 +95,7 @@ def execute_schema_question(
     """
 
     try:
-        from app.execution.registered_metrics import try_registered_metric
+        from app.execution.semantics.registered_metrics import try_registered_metric
         result = try_registered_metric(confirmed_context)
         if result is None:
             result = try_fast_sql_answer(

@@ -6,8 +6,8 @@ than guessing that every pair of columns ending in `_id` is incompatible.
 from sqlglot import exp
 from sqlglot.optimizer.scope import Scope, traverse_scope
 
-from app.execution.analysis_semantics import load_analysis_semantics
-from app.execution.sql_ast import SqlContractViolation
+from app.execution.semantics.analysis_semantics import load_analysis_semantics
+from app.execution.sql.sql_ast import SqlContractViolation
 
 
 def validate_join_roles(tree: exp.Query) -> None:

@@ -5,7 +5,8 @@ import sqlite3
 
 import pytest
 
-from app.execution import sql_builder, sql_tools
+from app.execution.sql import sql_builder
+from app.execution.tools import sql_tools
 from app.planning.analysis_models import AnalysisPlan, MetricSpec
 
 
@@ -249,7 +250,8 @@ def test_configured_creation_predicate_is_still_enforced(state, monkeypatch):
     semantics = {"entity_lifecycles": {"order": {
         "table": "orders", "creation_field": "status", "creation_value": "paid", "id_field": "order_id",
     }}}
-    from app.execution import analysis_semantics, sql_contract
+    from app.execution.semantics import analysis_semantics
+    from app.execution.sql import sql_contract
     monkeypatch.setattr(sql_contract, "load_analysis_semantics", lambda: semantics)
     monkeypatch.setattr(analysis_semantics, "load_analysis_semantics", lambda: semantics)
     checker, _, _ = pipeline(state, confirmed_plan={"target_entity": "order"}, temporal_context={"mode": "relative"})
@@ -262,7 +264,8 @@ def test_mode_service_runs_real_agent_tools_and_returns_result(state, monkeypatc
     """LLM 응답만 대체하고 두 모드의 서비스→에이전트→검사→DB→응답을 검증한다."""
     from unittest.mock import Mock
     from langchain_core.messages import AIMessage
-    from app.execution import fast_sql_agent, schema_tools
+    from app.execution.agent import fast_sql_agent
+    from app.execution.tools import schema_tools
     from app.execution.a2ui import service as a2ui_service
     from app.execution.baseline import service as baseline_service
     from app.planning.ui_models import UiPlan

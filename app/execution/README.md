@@ -1,56 +1,44 @@
 # `app/execution` · SQL 생성·검증·실행
 
-분석 계획을 실행 문맥으로 바꾸고 스키마 탐색, SQL 생성, 계획 일치 검사, 읽기 전용 실행과 결과 검사를 수행합니다.
+분석 계획을 실행 문맥으로 바꾸고 스키마 탐색, SQL 생성, 계약 검증, 읽기 전용 실행과 결과 검사를 수행합니다.
 
-## SQL 실행과 검증 순서
-
-```mermaid
-flowchart TD
-    A["분석 계획과 질문"] --> B["실행 문맥 구성"]
-    B --> C["관련 스키마 탐색"]
-    C --> D["SQL 생성"]
-    D --> E["안전성 · 기간 · 계획 일치 검사"]
-    E --> F["SQLite 읽기 전용 실행"]
-    F --> G["결과 계약 검사와 응답"]
-    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
-    class A focus
-```
-
-## 주요 파일
-
-| 파일 | 역할 |
-|---|---|
-| [analysis_semantics.py](analysis_semantics.py) | 스키마만으로 알기 어려운 업무 의미 설정을 읽고 SQL에 적용한다. |
-| [confirmed_context.py](confirmed_context.py) | 분석 계획을 SQL 생성기와 검증기가 공유하는 실행 기준으로 정리한다. |
-| [confirmed_execution.py](confirmed_execution.py) | 공통 SQL 에이전트의 실행을 시작하고 성공·실패 결과를 표준화한다. |
-| [fast_sql_agent.py](fast_sql_agent.py) | LLM의 스키마 탐색·SQL 검사·실행 도구 호출을 조정하는 핵심 에이전트. |
-| [result_contract.py](result_contract.py) | 실행 결과의 컬럼과 행이 계획의 요청 속성·결과 단위에 맞는지 검사한다. |
-| [join_contract.py](join_contract.py) | 설정에 확인된 식별자 역할로 CTE를 거친 잘못된 연결을 차단한다. |
-| [registered_metrics.py](registered_metrics.py) | 설정에 등록한 모집단·부분집합 지표를 공통 SQL로 컴파일한다. |
-| [result_payload.py](result_payload.py) | 두 모드가 공유하는 SQL 실행 실패 응답 데이터를 만든다. |
-| [schema_tools.py](schema_tools.py) | 실제 SQLite 스키마와 데이터 특성을 읽기 전용으로 탐색한다. |
-| [semantic_aliases.py](semantic_aliases.py) | 사용자 표현과 DB에 저장된 표준 값 사이의 별칭 매핑을 제공한다. |
-| [sql_builder.py](sql_builder.py) | 검증된 SQL을 실제 DB에서 실행하고 결과를 기본 표 형식으로 표시한다. |
-| [sql_ast.py](sql_ast.py) | 공통 계약 예외, SQLite SQL 파싱과 AST 정보 추출을 제공한다. |
-| [sql_contract.py](sql_contract.py) | 계약 검사를 조율하고 계획의 그룹·정렬·필터·업무 조건을 검사한다. |
-| [sql_schema_contract.py](sql_schema_contract.py) | SQL의 물리 테이블·컬럼을 확인된 라이브 스키마와 대조한다. |
-| [sql_metric_contract.py](sql_metric_contract.py) | 집계 종류·건수 단위와 등록된 비율 지표를 검사한다. |
-| [sql_safety.py](sql_safety.py) | 생성 SQL이 DB를 변경하지 못하도록 읽기 전용 경계를 적용한다. |
-| [sql_tools.py](sql_tools.py) | LLM이 호출할 SQL 검사·실행 도구와 두 도구가 공유할 상태를 만든다. |
-| [temporal_policy.py](temporal_policy.py) | 상대 기간의 기준 시점과 SQL 날짜 조건을 일관되게 검사한다. |
-
-## 연결 흐름
-
-baseline/ 또는 a2ui/ 서비스 → confirmed_execution.py → fast_sql_agent.py → SQL 검사·실행 도구로 연결됩니다. sql_safety는 데이터 변경 차단, sql_contract는 계획 의미, result_contract는 결과 형태를 검사합니다.
-
-등록 모집단 지표는 `confirmed_execution.py`에서 `registered_metrics.py`를 통해 컴파일한 뒤 같은 SQL 검사·실행 도구를 통과합니다. SQL의 분모·관계·조건을 모델이 임의로 바꿀 수 없으며, 실행 기록에는 `registered_metric`으로 구분합니다. 두 모드에 동일하게 적용합니다.
-
-## 하위 폴더 안내
+## 역할별 구성
 
 | 폴더 | 역할 |
 |---|---|
-| [a2ui/](a2ui/README.md) | 확정된 Agent2UI 계획 실행 |
-| [baseline/](baseline/README.md) | 프롬프트 모드 즉시 실행 |
+| [agent/](agent/README.md) | LLM 추론과 Tool 호출 제어 |
+| [tools/](tools/README.md) | DB 스키마 탐색과 SQL 도구 |
+| [sql/](sql/README.md) | SQL 구문 분석·생성·검증 |
+| [semantics/](semantics/README.md) | 업무 의미와 집계 규칙 |
+| [results/](results/README.md) | 실행 결과의 검증과 응답 구성 |
+| [baseline/](baseline/README.md) | 프롬프트 모드의 계획 생성·즉시 실행 응답 |
+| [a2ui/](a2ui/README.md) | 사용자가 확정한 계획의 실행 응답 |
+
+## 공통 실행 진입점
+
+| 파일 | 역할 |
+|---|---|
+| [confirmed_context.py](confirmed_context.py) | 분석 계획을 SQL 생성기와 검증기가 공유하는 실행 기준으로 정리한다. |
+| [confirmed_execution.py](confirmed_execution.py) | 공통 실행을 시작하고 성공·실패 결과를 표준화한다. |
+
+두 파일은 Baseline과 Agent2UI가 공유하므로 execution/ 바로 아래에 둡니다. confirmed는 사용자 확인 화면의 유무를 뜻하지 않습니다.
+
+## 실행과 검증 흐름
+
+```mermaid
+flowchart TD
+    A["baseline/ 또는 a2ui/ 서비스"] --> B["confirmed_context · confirmed_execution"]
+    B --> C["agent/ · LLM 추론과 도구 호출"]
+    C --> D["tools/ · 스키마 탐색과 SQL 도구"]
+    D --> E["sql/ · 안전성·계약 검사와 읽기 전용 실행"]
+    F["semantics/ · 업무·집계·기간 규칙"] --> D
+    F --> E
+    E --> G["results/ · 결과 계약 검사와 응답 데이터"]
+```
+
+검사 도구와 실행 도구는 공통 검증 순서를 사용하며, 실행 직전에도 현재 계획과 스키마를 다시 검사합니다. 날짜 수정자나 필터 값 추출은 보조 정보이며 업무 조건의 타당성은 SQL 계약 검증으로 확인합니다.
+
+등록 모집단 지표는 confirmed_execution.py에서 semantics/registered_metrics.py를 통해 컴파일한 뒤 같은 검사·실행 도구를 통과합니다. 실행 기록에는 registered_metric으로 구분하며 두 모드에 동일하게 적용합니다.
 
 ## 함께 읽기
 

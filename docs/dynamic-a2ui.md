@@ -54,7 +54,7 @@ Block은 질문에 따라 2개, 4개, 5개 또는 그 이상이 될 수 있다. 
 | `planning/service.py` | 서버 Catalog를 기존 UiPlan에 연결 |
 | `planning/a2ui/validator.py`, `refinement.py`, `models.py`, `review.py` | 공통 수정·종속값·Patch·선택지 재발급 |
 | `routes/a2ui/review.py` | 서버 발급 스키마를 통한 직접 수정·확정 검증 |
-| `execution/sql_contract.py` | 월별 집계·등록 실패율의 SQL 계약 검사 |
+| `execution/sql/sql_contract.py` | 월별 집계·등록 실패율의 SQL 계약 검사 |
 | `Data/docs/analysis_semantics.json` | 배송 실패율 Semantic Metric 정의 |
 | `static/js/a2ui/plan/plan-renderer.js`, `plan-validation.js`, `plan-labels.js`, `plan-sentence.js` | 가변 카드, 실시간 종속값·검증·미리보기·월별 이름 |
 | `static/js/results/result-renderer.js`, `static/a2ui/review.css` | 복수 차원 차트 및 카드 편집 배치 |

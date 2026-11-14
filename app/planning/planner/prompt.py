@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 
 from app.a2ui.catalog import PLAN_COMPONENT_TYPES
-from app.execution.analysis_semantics import load_analysis_semantics
-from app.execution.semantic_aliases import alias_grounding_context
+from app.execution.semantics.analysis_semantics import load_analysis_semantics
+from app.execution.semantics.semantic_aliases import alias_grounding_context
 from app.planning.schema_context import PlannerSchemaContext
 from app.planning.planner.models import PlannerContextCandidate
 from app.planning.option_catalog import build_plan_option_catalog, catalog_snapshot

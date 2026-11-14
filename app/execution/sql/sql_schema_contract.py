@@ -7,7 +7,7 @@ import re
 from sqlglot import exp
 from sqlglot.optimizer.scope import Scope, traverse_scope
 
-from app.execution.sql_ast import SqlContractViolation
+from app.execution.sql.sql_ast import SqlContractViolation
 
 _SCHEMA_HEADER = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\((.*)\)$")
 

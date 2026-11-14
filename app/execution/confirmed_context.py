@@ -21,8 +21,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.planning.analysis_models import AnalysisPlan, FieldMetadata
 from app.data.database import DEFAULT_DB_PATH
-from app.execution.analysis_semantics import timeline_anchor
-from app.execution.sql_safety import create_read_only_connection
+from app.execution.semantics.analysis_semantics import timeline_anchor
+from app.execution.sql.sql_safety import create_read_only_connection
 
 
 class TemporalExecutionContext(BaseModel):

@@ -11,7 +11,7 @@ from app.planning.a2ui.validator import apply_plan_update, validate_ui_plan
 from app.planning.a2ui.refinement import _merge_refinement_patch
 from app.planning.a2ui.models import RefinementPatch
 from app.planning.option_catalog import build_plan_option_catalog
-from app.execution.sql_contract import validate_sql_contract, SqlContractViolation
+from app.execution.sql.sql_contract import validate_sql_contract, SqlContractViolation
 from app.a2ui.review import surface_for_plan
 from app.routes.a2ui import review
 

@@ -15,7 +15,7 @@ from app.core.llm_settings import resolve_agent_llm_settings
 from app.data.database import DEFAULT_DB_PATH, ensure_database_ready
 from app.experiment.tasks import load_task_config
 from app.runtime.state_store import get_state_db_path
-from app.execution.sql_safety import create_read_only_connection
+from app.execution.sql.sql_safety import create_read_only_connection
 
 
 class StartupCheckError(RuntimeError):
@@ -111,7 +111,7 @@ def _check_semantics() -> dict[str, Any]:
     """Reject stale or mistyped physical metadata when selecting a new DB."""
     import json
     import os
-    from app.execution.analysis_semantics import analysis_semantics_path
+    from app.execution.semantics.analysis_semantics import analysis_semantics_path
     path = analysis_semantics_path()
     if not path.exists() and not os.environ.get('ANALYSIS_SEMANTICS_PATH'):
         return {'status':'ok', 'configured':False}

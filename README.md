@@ -65,8 +65,8 @@ Python 3.13+, [uv](https://docs.astral.sh/uv/getting-started/installation/), 모
 | 설계 | 구현 방식과 이유 | 코드 |
 |---|---|---|
 | 구조화된 분석 계획 | 질문을 기간·필터·지표·집계 기준으로 표현해 UI와 실행의 공통 기준으로 사용 | [planning](app/planning/analysis_models.py) |
-| 계획과 SQL 일치 검사 | 사용자가 확정한 조건이 실행 쿼리에 반영됐는지 AST 기반 검사 | [SQL 계약](app/execution/sql_contract.py) |
-| 읽기 전용 조회 | SQL 검사와 SQLite authorizer·읽기 전용 연결로 데이터 변경 차단 | [SQL 안전성](app/execution/sql_safety.py) |
+| 계획과 SQL 일치 검사 | 사용자가 확정한 조건이 실행 쿼리에 반영됐는지 AST 기반 검사 | [SQL 계약](app/execution/sql/sql_contract.py) |
+| 읽기 전용 조회 | SQL 검사와 SQLite authorizer·읽기 전용 연결로 데이터 변경 차단 | [SQL 안전성](app/execution/sql/sql_safety.py) |
 | 계획 화면 버전 관리 | 이전 화면의 확정 요청을 거절해 수정 내용과 실행 상태의 충돌 방지 | [검토 API](app/routes/a2ui/review.py) |
 | 공통 실행·결과 계층 | 두 방식의 차이를 사용자 검토 단계에 두고 실행·표시 체계 공유 | [백엔드 구조](app/README.md) |
 

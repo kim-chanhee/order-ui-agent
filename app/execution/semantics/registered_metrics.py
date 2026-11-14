@@ -8,7 +8,7 @@ from time import perf_counter
 
 from sqlglot import exp
 
-from app.execution.analysis_semantics import load_analysis_semantics, timeline_anchor
+from app.execution.semantics.analysis_semantics import load_analysis_semantics, timeline_anchor
 
 
 def _identifier(value):
@@ -126,10 +126,10 @@ def try_registered_metric(confirmed_context):
     sql=compile_registered_metric(confirmed_context.confirmed_plan)
     if sql is None:
         return None
-    from app.execution.fast_sql_agent import FastSqlResult
-    from app.execution.schema_tools import get_table_schema
-    from app.execution.sql_tools import SqlToolState, make_query_checker_tool, make_execute_query_tool
-    from app.execution.sql_ast import extract_physical_tables
+    from app.execution.agent.fast_sql_agent import FastSqlResult
+    from app.execution.tools.schema_tools import get_table_schema
+    from app.execution.tools.sql_tools import SqlToolState, make_query_checker_tool, make_execute_query_tool
+    from app.execution.sql.sql_ast import extract_physical_tables
     tables=sorted(extract_physical_tables(sql))
     schema=str(get_table_schema.invoke({'table_names':','.join(tables)}))
     state=SqlToolState(inspected_tables=set(tables), schema_context=[schema], require_schema_inspection=True)

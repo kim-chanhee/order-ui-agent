@@ -23,10 +23,10 @@ from typing import Iterable
 
 from langchain_core.tools import tool
 
-from app.data.database import DEFAULT_DB_PATH
-from app.execution.semantic_aliases import canonical_values_for_text
-from app.execution.analysis_semantics import semantic_execution_context
-from app.execution.sql_safety import create_read_only_connection
+from app.data.database import DEFAULT_DB_PATH, PROJECT_ROOT
+from app.execution.semantics.semantic_aliases import canonical_values_for_text
+from app.execution.semantics.analysis_semantics import semantic_execution_context
+from app.execution.sql.sql_safety import create_read_only_connection
 
 
 _TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+|[가-힣]{2,}")
@@ -243,7 +243,7 @@ def schema_fingerprint() -> str:
             "ORDER BY type, name"
         ).fetchall()
     import json
-    from app.execution.analysis_semantics import load_analysis_semantics
+    from app.execution.semantics.analysis_semantics import load_analysis_semantics
     stat = DEFAULT_DB_PATH.stat()
     identity = (str(DEFAULT_DB_PATH.resolve()), stat.st_size, stat.st_mtime_ns,
                 'population-and-key-roles-v1', load_analysis_semantics())
@@ -897,7 +897,7 @@ def _schema_join_graph(
             if identifiers[left] & identifiers[right]:
                 graph[left].add(right)
                 graph[right].add(left)
-    from app.execution.analysis_semantics import load_analysis_semantics
+    from app.execution.semantics.analysis_semantics import load_analysis_semantics
 
     for scope in load_analysis_semantics().get("relationship_scopes", []):
         if not isinstance(scope, dict):
@@ -1013,7 +1013,7 @@ def _schema_summary_path() -> Path:
     configured = os.environ.get("SCHEMA_SUMMARY_PATH")
     if configured:
         return Path(configured).expanduser()
-    return Path(__file__).resolve().parents[2] / "Data" / "docs" / "schema_summary.md"
+    return PROJECT_ROOT / "Data" / "docs" / "schema_summary.md"
 
 
 def _read_semantic_text() -> str:

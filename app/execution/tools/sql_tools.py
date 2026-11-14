@@ -19,13 +19,13 @@ from typing import Any
 
 from langchain_core.tools import tool
 
-from app.execution.semantic_aliases import alias_grounding_context
-from app.execution.result_contract import ResultContractViolation, validate_result_contract
-from app.execution.sql_builder import MAX_RESULT_ROWS, _format_generic_sql_rows, _run_fallback_sql
-from app.execution.sql_safety import validate_read_only_sql
-from app.execution.temporal_policy import validate_relative_time_sql
-from app.execution.analysis_semantics import validate_configured_semantics_sql
-from app.execution.sql_contract import (
+from app.execution.semantics.semantic_aliases import alias_grounding_context
+from app.execution.results.result_contract import ResultContractViolation, validate_result_contract
+from app.execution.sql.sql_builder import MAX_RESULT_ROWS, _format_generic_sql_rows, _run_fallback_sql
+from app.execution.sql.sql_safety import validate_read_only_sql
+from app.execution.semantics.temporal_policy import validate_relative_time_sql
+from app.execution.semantics.analysis_semantics import validate_configured_semantics_sql
+from app.execution.sql.sql_contract import (
     SqlContractViolation,
     extract_filter_literals,
     extract_physical_tables,

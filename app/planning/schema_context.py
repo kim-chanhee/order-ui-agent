@@ -12,8 +12,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from app.execution.semantic_aliases import alias_grounding_context
-from app.execution.schema_tools import (
+from app.execution.semantics.semantic_aliases import alias_grounding_context
+from app.execution.tools.schema_tools import (
     discover_relationships,
     get_semantic_context,
     get_table_schema,

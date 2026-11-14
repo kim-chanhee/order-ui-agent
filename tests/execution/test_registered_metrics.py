@@ -3,10 +3,12 @@ import sqlite3
 
 import pytest
 
-from app.execution import sql_builder, schema_tools, confirmed_context
+from app.execution.sql import sql_builder
+from app.execution.tools import schema_tools
+from app.execution import confirmed_context
 from app.execution.confirmed_context import ConfirmedAnalysisContext
-from app.execution.registered_metrics import compile_registered_metric, try_registered_metric
-from app.execution.sql_contract import SqlContractViolation, validate_sql_contract
+from app.execution.semantics.registered_metrics import compile_registered_metric, try_registered_metric
+from app.execution.sql.sql_contract import SqlContractViolation, validate_sql_contract
 from app.planning.analysis_models import AnalysisPlan, MetricSpec, FilterSpec
 
 

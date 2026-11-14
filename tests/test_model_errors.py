@@ -1,7 +1,7 @@
 import pytest
 
 from app.core.model_errors import invoke_with_retry
-from app.execution.fast_sql_agent import classify_model_error, classify_failure_message
+from app.execution.agent.fast_sql_agent import classify_model_error, classify_failure_message
 from app.execution.confirmed_execution import format_agent_failure_answer
 
 

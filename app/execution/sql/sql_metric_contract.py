@@ -7,8 +7,8 @@ from typing import Any
 
 from sqlglot import exp
 
-from app.execution.analysis_semantics import load_analysis_semantics
-from app.execution.sql_ast import SqlContractViolation
+from app.execution.semantics.analysis_semantics import load_analysis_semantics
+from app.execution.sql.sql_ast import SqlContractViolation
 
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 

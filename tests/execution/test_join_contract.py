@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from app.execution.sql_contract import SqlContractViolation, validate_sql_contract
+from app.execution.sql.sql_contract import SqlContractViolation, validate_sql_contract
 
 
 @pytest.fixture

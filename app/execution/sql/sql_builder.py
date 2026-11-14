@@ -14,7 +14,7 @@ import sqlite3
 from contextlib import closing
 
 from app.data.database import DEFAULT_DB_PATH
-from app.execution.sql_safety import create_read_only_connection, validate_read_only_sql
+from app.execution.sql.sql_safety import create_read_only_connection, validate_read_only_sql
 
 
 SqlParams = tuple[object, ...]

@@ -9,7 +9,7 @@ import urllib.error
 import urllib.request
 import uuid
 
-from app.execution.sql_safety import create_read_only_connection
+from app.execution.sql.sql_safety import create_read_only_connection
 
 OUT = Path(os.environ.get('TASK_TEST_OUTPUT_DIR', 'artifacts/task-tests'))
 BASE_URL = os.environ.get('TASK_TEST_BASE_URL', 'http://127.0.0.1:8001')

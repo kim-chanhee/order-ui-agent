@@ -170,3 +170,4 @@ export function josaIGa(word) {
 export function josaWaGwa(word) {
   return jongseong(word) > 0 ? "과" : "와";
 }
+

@@ -12,7 +12,6 @@ A2UI_DIR = Path(__file__).resolve().parent
 SURVEY_FILE = A2UI_DIR / 'merged_survey.xlsx'
 FIGURE_DIR = A2UI_DIR / 'figures'
 RESULT_DIR = A2UI_DIR / 'results'
-# Private study-specific thread IDs must be supplied locally; never committed.
 EXCLUSIONS_FILE = A2UI_DIR / 'analysis_exclusions.json'
 REANALYSIS_THREADS = (
     json.loads(EXCLUSIONS_FILE.read_text(encoding='utf-8')).get('reanalysis_threads', [])

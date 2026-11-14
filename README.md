@@ -24,6 +24,8 @@ Agent2UI는 기간·필터·지표·집계 기준을 편집 가능한 UI로 먼�
 
 **두 모드는 같은 계획 생성기·SQL 실행 계층·결과 렌더러를 공유합니다.** 이 프로젝트의 핵심 설계는 실행 전 계획 검토, 사용자 수정 내용의 실행 반영, 계획과 SQL의 일치 검증입니다.
 
+일반 조회는 LLM이 SQL을 생성하고, 사전 등록된 모집단·부분집합 지표는 공통 설정 기반 컴파일러로 실행할 수 있습니다. 실행 기록에서 두 경로를 구분합니다. [새 데이터 연결·코드 수정 안내](docs/data-profiles.md)와 [논문 기술·재현 범위](docs/research-reproducibility.md)를 참고하세요.
+
 | 프롬프트 모드 · 바로 조회 | Agent2UI 모드 · 계획 검토 |
 |---|---|
 | <img src="docs/images/prompt-result.png" alt="프롬프트 모드의 질문과 조회 결과" width="390"> | <img src="docs/images/agent2ui-plan.png" alt="Agent2UI의 기간과 집계 기준 편집 화면" width="390"> |
@@ -53,8 +55,6 @@ Python 3.13+, [uv](https://docs.astral.sh/uv/getting-started/installation/), 모
 `Data/A2UI`에는 신뢰도·기술통계·상관분석·이원분산분석·가정 검정·Box–Cox 재분석·행동 로그 분석 **노트북 7개**와 공통 모듈을 제공합니다. 실행 출력과 원자료 링크는 제거했으며, 참가자 설문·명단·개별 로그는 배포하지 않습니다. 원자료가 필요하므로 코드 열람과 전체 실행 가능 여부를 구분합니다.
 
 [노트북 목록·입력 데이터·실행 순서 보기](Data/A2UI/README.md)
-
-실험에 사용한 [참여 안내문·과제와 제공된 분석 결과표](docs/experiments/README.md)도 함께 보관합니다. Word 파일과 GitHub 열람본을 제공하며, 자료 안내에서 실험 과제와 결과표 구성을 확인할 수 있습니다.
 
 ## 시스템 구조
 
@@ -95,7 +95,6 @@ uv run pytest tests/execution -q
 | 목적 | 문서 |
 |---|---|
 | 데이터의 출처·구조·준비 방법 | [Data 안내](Data/README.md) |
-| 실험 참여 안내·과제·제공된 분석 결과표 | [실험 자료](docs/experiments/README.md) |
 | 사용자 연구 분석 노트북 7개 | [A2UI 분석 안내](Data/A2UI/README.md) |
 | 설치·합성 데모·본인 DB 연결·문제 해결 | [시작 안내](docs/getting-started.md) |
 | 모든 화면·구조도·계획 UI 생성·평가 절차 | [시스템 상세 설명](docs/system-guide.md) |
@@ -110,3 +109,5 @@ uv run pytest tests/execution -q
 - 프론트엔드 및 전체 사용자 흐름 자동 검증
 
 위 항목은 향후 작업이며 현재 구현·검증된 기능과 구분합니다.
+
+GPT API 연결·호출 상한·사용량 기록과 최신 검증 상태는 [GPT 운영 안내](docs/gpt-operation.md)를 참고하세요.

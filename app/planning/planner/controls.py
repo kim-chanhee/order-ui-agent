@@ -134,3 +134,4 @@ def _hydrate_block_options(block: UiBlock, catalog: Any, *, metric_kind: str | N
     elif block.type in _CHOICE_BLOCK_TYPES:
         raise ValueError(f'{block.label}: {path} 필드의 선택지 검증 규칙이 Catalog에 없습니다. Use a supported scalar field_path such as metric.kind or output.view.')
     return block
+

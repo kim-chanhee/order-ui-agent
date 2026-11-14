@@ -7,6 +7,8 @@ from dataclasses import dataclass
 
 from sqlglot import exp, parse
 from sqlglot.errors import ParseError
+from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
+from sqlglot.optimizer.scope import traverse_scope
 
 _TEMPORAL_MODIFIER = re.compile(
     r"^[+-]?\d+\s+(?:day|days|week|weeks|month|months|year|years)$",
@@ -57,19 +59,14 @@ def extract_physical_tables(sql: str) -> set[str]:
     WITH절의 CTE 이름은 임시 참조이므로 실제 테이블 목록에서 제외한다.
     """
 
-    tree = parse_sql_ast(sql)
-    cte_names = {cte.alias_or_name.casefold() for cte in tree.find_all(exp.CTE)}
-    return {
-        table.name
-        for table in tree.find_all(exp.Table)
-        if table.name and table.name.casefold() not in cte_names
-    }
+    return physical_tables_from_tree(parse_sql_ast(sql))
 
 
 def extract_filter_literals(sql: str) -> list[str]:
     """구문 트리의 실제 조건식에 참여하는 문자열 값을 중복 없이 추출한다.
 
     LIKE 양끝 와일드카드와 날짜 이동 수식은 정리·제외하며 주석과 단순 출력 상수는 조건 근거로 보지 않는다.
+    추출 결과는 업무적 타당성을 보장하지 않으므로 SQL 계약 검증과 함께 사용한다.
     """
 
     tree = parse_sql_ast(sql)
@@ -89,11 +86,18 @@ def extract_filter_literals(sql: str) -> list[str]:
 
 
 def physical_tables_from_tree(tree: exp.Query) -> set[str]:
-    """이미 파싱한 구문 트리에서 CTE를 제외한 물리 테이블 집합을 반환한다.
+    """각 조회 범위에서 CTE와 물리 테이블 참조를 구분해 실제 테이블 이름을 반환한다.
 
-    업무 관계가 요구하는 테이블의 포함 여부를 검사할 때 재사용한다.
+    SQLite 이름 비교를 위해 복사본만 정규화하며 반환 이름과 원본 AST는 보존한다.
     """
 
-    cte_names = {cte.alias_or_name.casefold() for cte in tree.find_all(exp.CTE)}
-    return {table.name for table in tree.find_all(exp.Table) if table.name.casefold() not in cte_names}
+    scoped_tree = tree.copy()
+    original_names = {id(table): table.name for table in scoped_tree.find_all(exp.Table)}
+    normalize_identifiers(scoped_tree, dialect="sqlite")
+    return {
+        original_names[id(source)]
+        for scope in traverse_scope(scoped_tree)
+        for source in scope.sources.values()
+        if isinstance(source, exp.Table) and original_names.get(id(source))
+    }
 

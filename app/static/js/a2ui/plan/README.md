@@ -14,10 +14,6 @@
 | [plan-sentence.js](plan-sentence.js) | 현재 계획의 분석 의미를 사용자 안내 문장으로 표현. |
 | [plan-validation.js](plan-validation.js) | 확정 전 필수값·미해결 조건·계획 유효성 검사. |
 
-## 연결 흐름
-
-plan-renderer.js가 카드와 요청 payload를 만듭니다. 표시·필수 조건은 condition-evaluator.js, 확정 전 검사는 plan-validation.js, 수정 기록은 plan-diff.js가 담당합니다. 최종 실행 허용 여부는 서버에서도 검증합니다.
-
 ## 함께 읽기
 
 - [상위 폴더 안내](../README.md)

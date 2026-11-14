@@ -4,33 +4,6 @@
 
 사용자 화면에서 부르는 A2UI 모드의 API 필드 값은 `agent2ui`이다. 코드와 요청 예시에서는 이 값을 사용한다.
 
-## 폴더 구조
-
-```text
-app/
-  routes/
-    __init__.py
-    README.md            # 이 문서
-    api.py               # 전체 라우터 연결, 상태 확인, 기본 HTML 응답
-    chat.py              # 두 모드의 질문 접수와 실행 취소
-    experiment.py        # 두 모드의 실험 세션·과제·단계 관리
-    schemas.py           # 공통 채팅·실험 요청·응답과 측정값
-    errors.py            # 공통 오류 코드와 오류 본문 생성
-    web_ui.py            # 기본 HTML 로딩과 정적 파일 경로
-    a2ui/
-      __init__.py
-      review.py          # A2UI 전용 계획 수정·확정과 화면 버전 검증
-      schemas.py         # A2UI 전용 계획 수정·확정 요청·응답
-
-  a2ui/
-    adapter.py           # 두 모드의 조회 결과를 공통 화면 형식으로 변환
-    review.py            # A2UI 모드 전용 계획 검토 화면 생성
-    catalog.py           # 지원하는 UI 컴포넌트 정의
-    models.py            # A2UI 화면·컴포넌트 전송 모델
-```
-
-`app/routes/a2ui`와 `app/a2ui`는 책임이 다르다. 전자는 A2UI 전용 HTTP 요청을 처리하고, 후자는 계획·결과를 프론트엔드가 표시할 화면 형식으로 만든다. 화면 변환 기능은 공통 채팅의 결과 표시에서도 사용할 수 있다.
-
 ## 공통 기능과 모드 전용 기능
 
 | 구분 | 공통 | Baseline | A2UI |
@@ -42,8 +15,6 @@ app/
 | 실행 취소·실험 관리·요청 형식·오류 처리 | 두 모드가 공유 | 공통 API 사용 | 공통 API 사용 |
 
 Baseline에도 내부 분석 계획 생성 과정이 있다. 차이는 사용자가 계획을 검토·확정하는 HTTP 단계를 거치는지에 있다. 두 모드 모두 일반 대화, 저장된 결과 요약·설명·표시 변경은 새 SQL 실행 없이 처리할 수 있다. 조건이 불명확하면 확인 질문을 반환할 수 있다.
-
-현재 Baseline 전용 HTTP API는 없으므로 `routes/baseline/`은 만들지 않는다. 공통 파일은 `routes/` 바로 아래에 두고, 모드 전용 API가 생기면 해당 하위 폴더에 둔다.
 
 ## 파일별 책임
 
@@ -95,8 +66,6 @@ CSV 내보내기의 `researcher_key`는 `ORDER_UI_RESEARCHER_KEY`와 비교한�
 
 ## API 목록
 
-파일 이동은 Python 모듈 경로만 변경한다. 기존 HTTP 주소는 유지한다.
-
 | 메서드 | 주소 | 담당 파일 |
 |---|---|---|
 | GET | `/` | `api.py` |
@@ -110,52 +79,6 @@ CSV 내보내기의 `researcher_key`는 `ORDER_UI_RESEARCHER_KEY`와 비교한�
 | POST | `/api/experiment/task/complete` | `experiment.py` |
 | POST | `/api/experiment/step/advance` | `experiment.py` |
 | GET | `/api/experiment/export` | `experiment.py` |
-
-## 요청 흐름
-
-### Baseline 분석
-
-1. 브라우저가 `/api/chat`에 `input_source="baseline"`으로 질문을 보낸다.
-2. `routes/chat.py`가 `app/chat/service.py`에 전달한다.
-3. `app/chat/dispatch.py`에서 질문 유형을 판단한다.
-4. 분석이 필요하면 `app/execution/baseline/service.py`에서 계획 생성·검증과 SQL 실행을 진행한다.
-5. 라우터가 결과·문맥·로그를 기록하고 응답한다.
-
-### A2UI 분석
-
-1. 브라우저가 `/api/chat`에 `input_source="agent2ui"`로 질문을 보낸다.
-2. 채팅 서비스가 분석 요청으로 판단하면 계획과 검토 화면을 반환한다.
-3. 사용자가 자연어 조건을 추가하면 `/api/review/refine`에서 계획과 화면을 갱신한다.
-4. 사용자가 확정하면 `/api/review/confirm`에서 화면 버전과 편집 내용을 검사한다.
-5. 검증된 계획을 실행 서비스에 전달하고, 결과·문맥·로그를 기록해 응답한다.
-
-## 관련 기능의 위치와 수정 기준
-
-| 변경하려는 기능 | 확인할 위치 |
-|---|---|
-| 두 모드의 공통 채팅 HTTP 처리 | `app/routes/chat.py` |
-| A2UI 검토·확정 HTTP 처리 | `app/routes/a2ui/review.py` |
-| 질문 유형 판단과 모드별 분기 | `app/chat/dispatch.py`, `app/chat/turn_router.py` |
-| 분석 계획 생성·조건 해석 | `app/planning/` |
-| SQL 생성·검증·실행 | `app/execution/` |
-| 화면·컴포넌트 데이터 변환 | `app/a2ui/` |
-| 실험 세션·과제·단계 규칙 | `app/experiment/store.py` |
-| 공통 실험 문맥 조회·상호작용 기록 생성 | `app/experiment/context.py`, `app/experiment/interactions.py` (A2UI 확정 기록은 `app/experiment/a2ui/interactions.py`) |
-| 취소 가능한 실행·대화 결과·화면 상태 저장 | `app/runtime/` |
-
-새 라우터를 만들면 `api.py`에 등록한다. 라우터에는 HTTP 입출력과 처리 순서의 연결을 두고, 계획 생성·SQL 실행·실험 저장 규칙은 해당 기능 모듈에 둔다.
-
-## 검증
-
-프로젝트 루트에서 실행한다.
-
-```bash
-.venv/bin/python -m pytest tests -q
-```
-
-`tests/test_baseline_turn_routing.py`와 `tests/a2ui/test_agent2ui_turn_routing.py`는 모드별 질문 처리 경로를 확인한다. `tests/a2ui/test_route_workflows.py`는 통합 라우터에서 계획 수정·오래된 화면 거절·확정 결과 저장·실험 진행·내보내기 권한·취소 응답을 확인한다. 이 테스트들은 LLM의 실제 응답 품질을 평가하는 테스트와는 구분된다.
-
-전체 백엔드의 공통 코드와 모드별 코드 위치는 [백엔드 구조 설명](../README.md)을 참고한다.
 
 ## 하위 폴더 안내
 

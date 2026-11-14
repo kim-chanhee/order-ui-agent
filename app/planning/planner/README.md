@@ -2,20 +2,6 @@
 
 질문을 구조화된 분석 계획으로 바꾸는 공통 모델 호출·응답 복구·문맥 상속·의미 검증을 담당합니다. Baseline은 `AnalysisDraft`와 `include_ui=False`로 화면 없이 계획을 만들고, A2UI는 `PlannerDraft`로 동적 UI와 추천 조건을 추가합니다. UI 검증 실패가 Baseline의 실행 조건이 되지 않습니다.
 
-## 계획 생성과 후처리 순서
-
-```mermaid
-flowchart TD
-    A["질문 · 스키마 · 이전 분석 후보"] --> B["prompt · 모델 입력"]
-    B --> C["dynamic_planner · 모델 호출"]
-    C --> D["response · 응답 복구"]
-    D --> E["context · 문맥 상속"]
-    E --> F["controls와 semantics · UI와 의미 보정"]
-    F --> G["구조화된 계획 또는 조건 확인 계획"]
-    classDef focus fill:#e6f4f1,stroke:#0f766e,color:#123c38
-    class A focus
-```
-
 ## 주요 파일
 
 | 파일 | 역할 |
@@ -27,10 +13,6 @@ flowchart TD
 | [prompt.py](prompt.py) | 질문·스키마·이전 분석 후보를 계획 및 UI 생성 프롬프트로 구성한다. |
 | [response.py](response.py) | LLM 응답의 구조·타입·필드·UI 원시 값을 복구하고 모델로 검증한다. |
 | [semantics.py](semantics.py) | 분석 지표·관계 범위를 정리하고 분석 의미와 날짜 안내의 일관성을 검증한다. |
-
-## 연결 흐름
-
-외부 서비스는 패키지의 plan_dynamic_analysis를 사용합니다. dynamic_planner.py가 prompt → 모델 호출 → response → context·controls·semantics의 후처리를 조율하고 실패 시 조건 확인 계획을 반환합니다.
 
 ## 함께 읽기
 

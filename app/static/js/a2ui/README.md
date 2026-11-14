@@ -13,10 +13,6 @@
 | [state.js](state.js) | 검토 계획·처음 계획·현재 화면·확정 계획의 편집 상태. |
 | [surfaces.js](surfaces.js) | 서버 화면 정의를 UiPlan으로 변환하고 검토 화면 설치·표시. |
 
-## 연결 흐름
-
-app.js → createReviewController → surfaces.js·plan/ 순서로 계획을 표시합니다. api.js로 수정·확정 요청을 보내고, 결과는 공통 화면 계층에 전달합니다. reviewState가 검토 중인 계획을 보관합니다.
-
 ## 하위 폴더 안내
 
 | 폴더 | 역할 |

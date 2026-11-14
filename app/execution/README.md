@@ -23,23 +23,6 @@
 
 두 파일은 Baseline과 Agent2UI가 공유하므로 execution/ 바로 아래에 둡니다. confirmed는 사용자 확인 화면의 유무를 뜻하지 않습니다.
 
-## 실행과 검증 흐름
-
-```mermaid
-flowchart TD
-    A["baseline/ 또는 a2ui/ 서비스"] --> B["confirmed_context · confirmed_execution"]
-    B --> C["agent/ · LLM 추론과 도구 호출"]
-    C --> D["tools/ · 스키마 탐색과 SQL 도구"]
-    D --> E["sql/ · 안전성·계약 검사와 읽기 전용 실행"]
-    F["semantics/ · 업무·집계·기간 규칙"] --> D
-    F --> E
-    E --> G["results/ · 결과 계약 검사와 응답 데이터"]
-```
-
-검사 도구와 실행 도구는 공통 검증 순서를 사용하며, 실행 직전에도 현재 계획과 스키마를 다시 검사합니다. 날짜 수정자나 필터 값 추출은 보조 정보이며 업무 조건의 타당성은 SQL 계약 검증으로 확인합니다.
-
-등록 모집단 지표는 confirmed_execution.py에서 semantics/registered_metrics.py를 통해 컴파일한 뒤 같은 검사·실행 도구를 통과합니다. 실행 기록에는 registered_metric으로 구분하며 두 모드에 동일하게 적용합니다.
-
 ## SQL Agent 및 Tool Calling 상세
 
 - [Agent의 실행 흐름과 판단](agent/README.md): 주요 함수·클래스, ReAct와 Tool Calling, 복잡도 분류, SQL 후보 선택, 실행 제한·재시도와 결과 통계.

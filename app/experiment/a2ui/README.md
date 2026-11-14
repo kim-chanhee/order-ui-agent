@@ -8,10 +8,6 @@
 |---|---|
 | [interactions.py](interactions.py) | A2UI 전용 계획 확정 실행을 실험 상호작용 기록으로 변환한다. |
 
-## 연결 흐름
-
-routes/a2ui/review.py에서 확정 실행 후 record_confirm_interaction을 호출합니다. 공통 experiment/store.py를 통해 기록을 저장합니다.
-
 ## 함께 읽기
 
 - [상위 폴더 안내](../README.md)

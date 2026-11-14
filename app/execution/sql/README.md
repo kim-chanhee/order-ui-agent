@@ -161,8 +161,6 @@ CTE·하위 질의의 출력 참조는 해당 범위의 검사를 활용하며, 
 | `missing_filter`, `filter_value_mismatch` | 필터 누락 또는 지원하는 조건의 연산자·값 불일치. |
 | `semantic_ratio_population`, `registered_metric_query` | 등록된 비율 모집단 또는 컴파일된 지표 SQL 계약 위반. |
 
-[AST 테스트](../../../tests/execution/test_sql_ast.py), [SQL Tool 통합 테스트](../../../tests/execution/test_sql_tools.py), [JOIN 계약 테스트](../../../tests/execution/test_join_contract.py), [등록 지표 테스트](../../../tests/execution/test_registered_metrics.py)에서 관련 사례를 확인할 수 있습니다.
-
 스키마 관련 후보를 고르는 단계는 [Schema Retrieval](../tools/README.md#schema-retrieval-질문과-관련된-스키마-우선-검색), 식별자 역할 충돌 검사는 [JOIN의 의미적 유효성](../semantics/README.md#join의-의미적-유효성)에서 자세히 설명합니다.
 
 ## 함께 읽기

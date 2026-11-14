@@ -8,10 +8,6 @@
 |---|---|
 | [service.py](service.py) | Baseline 요청의 계획 생성·즉시 실행·응답 조립을 담당한다. |
 
-## 연결 흐름
-
-chat/dispatch.py → baseline_response_payload → 공통 planning 서비스 → 공통 SQL 실행 계층 순서입니다. 사용자에게 계획 확인 화면을 제시하는 HTTP 단계는 생략합니다.
-
 ## 함께 읽기
 
 - [상위 폴더 안내](../README.md)

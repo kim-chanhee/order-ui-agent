@@ -10,10 +10,6 @@
 | [run_manager.py](run_manager.py) | 별도 워커 프로세스에서 요청을 실행하고 취소·시간 제한을 관리한다. |
 | [state_store.py](state_store.py) | thread별 실행 결과·대화 문맥·검증된 SQL 예시 저장. |
 
-## 연결 흐름
-
-run_manager.py가 워커를 등록·실행·종료합니다. state_store.py는 thread별 실행 결과와 문맥을 저장하고, a2ui/는 계획 화면 버전과 확정 워커를 담당합니다. 상태 저장 DB는 조회 DB와 구분합니다.
-
 ## 하위 폴더 안내
 
 | 폴더 | 역할 |

@@ -8,10 +8,6 @@
 |---|---|
 | [service.py](service.py) | 사용자가 확인한 A2UI 계획을 검증·실행하고 응답을 조립한다. |
 
-## 연결 흐름
-
-계획 확정 라우트 또는 runtime/a2ui/worker.py에서 confirm_response_payload를 호출합니다. 검증된 계획은 공통 confirmed_execution.py로 전달합니다.
-
 ## 함께 읽기
 
 - [상위 폴더 안내](../README.md)

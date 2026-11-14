@@ -13,10 +13,6 @@
 | [models.py](models.py) | 화면·컴포넌트·액션·지원 기능의 Pydantic 전송 모델. |
 | [review.py](review.py) | A2UI 전용 검토 계획을 화면 데이터로 변환하고 저장한다. |
 
-## 연결 흐름
-
-실행 결과는 adapter.py를 통해 결과 화면으로 변환되고, 계획 검토는 review.py에서 화면과 계획을 함께 저장합니다. 전송 규격은 models.py, 지원 요소 목록은 catalog.py를 확인합니다.
-
 ## 함께 읽기
 
 - [앱 전체 구조](../README.md)

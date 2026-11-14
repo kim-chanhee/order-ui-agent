@@ -24,22 +24,6 @@
 
 [두 입력 방식의 실제 화면 비교](../../README.md#어떤-문제를-해결하나요)
 
-## 화면 처리 흐름
-
-1. `app.js`에서 채팅을 전송한다.
-2. 결과 화면은 공통 `surfaces/runtime.js`가 표시한다.
-3. 계획 화면은 `a2ui/review-controller.js`가 `a2ui/surfaces.js`와 `a2ui/plan/`을 통해 표시한다.
-4. 추가 조건은 전용 API로 전송하고 새 revision의 계획 화면을 설치한다.
-5. 확정하면 최초 계획과의 차이·현재 화면 ID·revision을 전송한다. 실행 결과는 다시 공통 렌더러로 표시한다.
-
-`appState.currentSurface`는 공통 결과 화면, `reviewState.currentSurface`는 검토 중인 계획 화면이다. 공통 결과 표시가 계획 편집 상태를 덮어쓰지 않는다.
-
-공통 스타일을 먼저, A2UI 스타일을 나중에 불러온다. 두 모드가 공유하는 카드·결과 규칙은 공통에 유지하며, 전용 선택자의 선언과 반응형 규칙은 A2UI 스타일에 둔다.
-
-## 검증
-
-현재 공개 소스에는 JavaScript 자동 테스트가 포함되어 있지 않습니다. 화면 변경 시 브라우저에서 계획 표시·수정·확정과 결과 렌더링을 확인합니다. Python 실행 검증은 `uv run pytest tests/execution -q`로 실행합니다.
-
 ## 하위 폴더 안내
 
 | 폴더 | 역할 |

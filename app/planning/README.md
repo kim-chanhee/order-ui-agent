@@ -15,10 +15,6 @@
 | [ui_models.py](ui_models.py) | 두 모드가 공유하는 선언형 UI와 분석 계획 응답 모델. |
 | [validator.py](validator.py) | 두 모드가 공유하는 UI 조건 평가와 필수 입력 필드 계산. |
 
-## 연결 흐름
-
-service.py가 스키마 문맥과 이전 분석 후보를 모아 planner/를 호출합니다. 생성된 AnalysisPlan과 UI 블록을 UiPlan으로 묶습니다. 두 입력 모드가 이 계획 생성 계층을 공유합니다.
-
 ## 하위 폴더 안내
 
 | 폴더 | 역할 |

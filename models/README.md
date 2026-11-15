@@ -1,18 +1,22 @@
 # Local model
 
+## 1. 이 폴더의 역할
+
 > **한눈에 보기** · 앱을 LM Studio의 로컬 모델 서버에 연결하는 방법과 제약을 설명합니다. 모델 파일은 LM Studio가 실행하고 앱은 HTTP로 요청합니다.
 
 **기본 흐름:** 로컬 모델 서버 실행 → 앱 연결 설정 → 모델 호출
 
-- Model: Qwen2.5-Coder-7B-Instruct
-- File: `qwen2.5-coder-7b-instruct-q4_k_m.gguf`
-- Quantization: Q4_K_M
-- SHA-256: `509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c`
-- Source: https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF
+## 2. 해결하려는 문제
 
-The GGUF file is excluded from Git. LM Studio also retains the original downloaded file; this folder contains a copy.
+모델 파일이 있어도 서버가 실행되지 않거나 도구 호출을 지원하지 않으면 앱에서 사용할 수 없습니다. 서버 준비와 연결 설정, 검증 범위를 구분합니다.
 
-## Run with LM Studio
+## 3. 핵심 기술
+
+로컬 모델 경로는 OpenAI 호환 HTTP 어댑터를 공유합니다. 모델 가중치 자체를 Python 코드에서 직접 로드하지 않으며, LM Studio가 제공하는 엔드포인트에 LangChain 클라이언트로 접근합니다. 공급자별 structured output 지원 차이는 공통 옵션으로 처리합니다.
+
+## 4. 핵심 함수와 실제 코드
+
+### Run with LM Studio
 
 The model must be loaded and the local server running before starting the application:
 
@@ -37,10 +41,6 @@ FAST_SQL_TOTAL_TIMEOUT_SECONDS=240
 Restart the application after changing settings. Routing, planning, SQL generation, and response generation share the local endpoint. The structured routing/planning adapter uses `tool_choice="required"` because this LM Studio runtime rejects a named tool-choice object. Plan validation remains enabled.
 
 The current planner can exceed 23,000 prompt tokens, so 16K context is insufficient. Larger context does not guarantee that a 7B model will produce a valid or correct plan. See `artifacts/local-baseline-20261101` for development test results, including failures. These are smoke tests, not a controlled study or a reproduction of another paper's reported accuracy.
-
-## 핵심 개념과 동작
-
-로컬 모델 경로는 OpenAI 호환 HTTP 어댑터를 공유합니다. 모델 가중치 자체를 Python 코드에서 직접 로드하지 않으며, LM Studio가 제공하는 엔드포인트에 LangChain 클라이언트로 접근합니다. 공급자별 structured output 지원 차이는 공통 옵션으로 처리합니다.
 
 ### 주요 함수·클래스
 
@@ -87,8 +87,25 @@ if provider == "openai":
 
 LM Studio의 로컬 HTTP 서버 → core.llm_settings → routing/planning/SQL/reply 클라이언트로 연결됩니다. GGUF 파일의 존재만으로 서버 준비나 Tool Calling 지원이 증명되는 것은 아닙니다.
 
-### 확인한 범위와 한계
+## 5. 구현 결과와 한계
+
+**현재 구현:** 공통 모델 설정을 통해 LM Studio의 OpenAI 호환 엔드포인트에 연결합니다.
 
 기존 23,000 토큰·16K 문맥 관련 문구는 개발 당시 입력에 대한 관찰이며 모든 현재 요청의 고정 크기 기준이 아닙니다. 전송 테스트는 실제 로컬 모델의 의미 정확도나 처리 속도를 측정하지 않습니다.
 
 관련 검증: [test_local_llm_transport.py](../tests/test_local_llm_transport.py).
+
+<details>
+<summary>파일 목록과 관련 문서 보기</summary>
+
+### 보충 안내
+
+- Model: Qwen2.5-Coder-7B-Instruct
+- File: `qwen2.5-coder-7b-instruct-q4_k_m.gguf`
+- Quantization: Q4_K_M
+- SHA-256: `509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c`
+- Source: https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF
+
+The GGUF file is excluded from Git. LM Studio also retains the original downloaded file; this folder contains a copy.
+
+</details>

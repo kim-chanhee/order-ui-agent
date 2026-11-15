@@ -1,23 +1,18 @@
 # `app/execution/sql` · SQL AST 및 계약 검증
 
+## 1. 이 폴더의 역할
+
 > **한눈에 보기** · SQL을 구조적으로 읽고 분석 계획과 비교합니다. 문법이 맞는지뿐 아니라, 요청한 조건과 집계가 들어갔는지 검사합니다.
 
 **기본 흐름:** SQL 해석 → 테이블·조건·지표 확인 → 계획과 비교
 
-사용자가 확정한 분석 조건과 LLM이 만든 SQL이 일치하는지 구조적으로 검사하는 계층입니다. SQL이 실행된다는 사실만으로 요청한 집계 단위·필터·기간이 맞다고 볼 수 없으므로, 구문 분석과 계획 계약·스키마·지표 검증을 분리합니다. Baseline도 내부 분석 계획을 만들어 같은 검증 경로를 사용합니다.
+## 2. 해결하려는 문제
 
-## 주요 파일
+문법이 맞는 SQL도 사용자가 정한 기간·필터·집계 단위를 잘못 반영할 수 있습니다. SQL을 구조로 읽고 계획과 비교하며 데이터 변경도 차단합니다.
 
-| 파일 | 역할 |
-|---|---|
-| [sql_ast.py](sql_ast.py) | SQLite SQL 파싱, 공통 계약 예외, 스코프 기반 물리 테이블·조건 값 추출. |
-| [sql_contract.py](sql_contract.py) | 계약 검사 조율과 그룹·정렬·개수 제한·명시적 필터·업무 조건 검사. |
-| [sql_metric_contract.py](sql_metric_contract.py) | 집계 함수·필드·중복 제거·집계 단위와 등록된 의미 지표 검사. |
-| [sql_schema_contract.py](sql_schema_contract.py) | 확인된 라이브 스키마 설명과 SQL의 테이블·컬럼 참조 대조. |
-| [sql_safety.py](sql_safety.py) | 읽기 전용 SQL 경계와 DB 연결에서 데이터 변경 차단. |
-| [sql_builder.py](sql_builder.py) | 검증된 SQL의 DB 실행, 실행 계획 확인과 기본 표 형식 제공. |
+## 3. 핵심 기술
 
-## 핵심 개념과 관련 함수
+### 핵심 개념과 관련 함수
 
 | 핵심 기술 | 관련 함수 | 문서에서 확인할 내용 |
 |---|---|---|
@@ -32,7 +27,7 @@
 | Semantic Metrics | `validate_semantic_metrics()` | 등록된 업무 지표의 분자·분모와 모집단 의미 검사. |
 | Schema Validation | `validate_schema_references()` | 실제 스키마 설명에 근거한 테이블·컬럼 참조 검사. |
 
-## AST: SQL을 구조로 분석하는 이유
+### AST: SQL을 구조로 분석하는 이유
 
 AST(Abstract Syntax Tree, 추상 구문 트리)는 SQL의 조회·집계·조건·테이블 참조를 노드로 표현합니다. 문자열에서 `COUNT`나 테이블 이름이 보이는지만 검사하면 주석, 출력용 상수, CTE, 다른 하위 질의에 있는 표현을 실제 분석 조건으로 오해할 수 있습니다.
 
@@ -40,7 +35,7 @@ AST(Abstract Syntax Tree, 추상 구문 트리)는 SQL의 조회·집계·조건
 
 예를 들어 `SELECT 'paid' AS label FROM orders`의 `'paid'`는 표시용 상수이고, `WHERE status = 'paid'`의 `'paid'`는 조건식에 참여하는 값입니다. AST는 이 위치 차이를 구분할 근거를 제공합니다.
 
-## CTE: 실제 테이블과 임시 참조
+### CTE: 실제 테이블과 임시 참조
 
 CTE(Common Table Expression)는 `WITH` 절로 이름을 붙여 같은 SQL 안에서 참조하는 조회입니다. 별도의 영구 테이블이 아니며, CTE 이름이 물리 테이블 이름과 같을 수도 있습니다.
 
@@ -60,7 +55,7 @@ FROM failed_orders;
 
 SQLite 식별자의 대소문자 비교를 위해 트리 복사본을 정규화합니다. 원본 AST와 반환하는 원래 테이블 이름은 보존합니다. 중첩·재귀 CTE, 스키마 접두사가 있는 테이블, UNION의 별도 조회 범위는 [AST 테스트](../../../tests/execution/test_sql_ast.py)에서 확인합니다.
 
-## Predicate: 조건식에서 필터 값 추출
+### Predicate: 조건식에서 필터 값 추출
 
 Predicate는 `=`, `<>`, `IN`, `BETWEEN`, `LIKE` 등 조건 판단에 사용되는 표현입니다. `extract_filter_literals()`는 AST의 `exp.Predicate` 아래에 있는 문자열 리터럴을 모읍니다.
 
@@ -71,7 +66,7 @@ Predicate는 `=`, `<>`, `IN`, `BETWEEN`, `LIKE` 등 조건 판단에 사용되�
 
 이 결과는 필드·연산자·값을 연결한 완전한 필터 모델이 아니라 **문자열 값 목록**입니다. 함수 인자에 있는 날짜 문자열 등이 포함될 수도 있고, 숫자 조건이나 모든 날짜 수정자를 다루는 것도 아닙니다. [SQL Tool](../tools/README.md)은 추출한 값을 질문·확인한 스키마·별칭과 대조해 근거 없는 조건을 탐지합니다. 날짜 수정자를 제외했다는 사실만으로 업무적 타당성이 보장되지는 않습니다.
 
-## SQL Contract: 분석 계획과 SQL의 실행 계약
+### SQL Contract: 분석 계획과 SQL의 실행 계약
 
 SQL Contract는 분석 계획의 지표·집계 기준·필터·정렬·개수 제한·업무 조건이 생성 SQL에 반영되어야 한다는 규칙입니다. Agent2UI에서 사용자가 검토·수정한 계획을 실제 실행과 연결하는 핵심 경계입니다.
 
@@ -96,7 +91,7 @@ flowchart TD
 
 [SQL Tool](../tools/README.md#검사에서-실행까지)은 계약 검증을 읽기 전용·기간·업무 의미 검사와 연결하며, 실행 직전에도 재검증합니다. 조회 후의 결과 컬럼·단위 검사는 [결과 계약](../results/README.md)이 담당합니다.
 
-## 그룹·정렬·개수 제한·필터
+### 그룹·정렬·개수 제한·필터
 
 | 검사 | 현재 구현 |
 |---|---|
@@ -108,7 +103,7 @@ flowchart TD
 
 그룹·정렬에서 물리 필드처럼 판단하는 기준은 단순 식별자이면서 언더스코어가 있거나 이름이 `id`인 경우입니다. 그룹 검사는 트리 안의 여러 SELECT에서 그룹 표현을 모으며 일부 비교는 문자열 포함 여부를 사용합니다. 필터 검사는 복잡한 AND·OR·NOT 조합이나 하위 질의 전체의 논리적 동등성을 증명하지 않습니다. 따라서 검사 통과를 모든 SQL 의미의 완전한 일치로 해석하면 안 됩니다.
 
-## COUNT(*)와 COUNT(DISTINCT): 무엇을 세는가
+### COUNT(*)와 COUNT(DISTINCT): 무엇을 세는가
 
 배송 실패 기록이 10행이라고 해서 실패한 주문이 반드시 10개인 것은 아닙니다. 같은 주문에 실패 이벤트가 여러 번 발생하거나 JOIN으로 행이 늘어날 수 있습니다.
 
@@ -125,7 +120,7 @@ flowchart TD
 
 일반 딕셔너리를 직접 전달하는 경우 `MetricSpec`의 정규화가 자동 적용되는 것은 아닙니다. 검증기는 전달된 지표의 `distinct`·`field`·`unit`과 업무 설정을 사용합니다.
 
-## 지표 검증과 업무상 집계 단위
+### 지표 검증과 업무상 집계 단위
 
 `validate_metrics()`는 최종 출력 표현식에서 `COUNT`, `SUM`, `AVG`, `MIN`, `MAX`의 종류·필요 개수·필드 참조를 확인합니다. 서로 다른 계획 지표를 같은 집계 노드 하나로 중복 충족시키지 않도록 사용한 노드를 구분합니다. 비율 지표는 최종 출력에 명시적인 나눗셈 표현식을 요구합니다.
 
@@ -145,7 +140,7 @@ FROM order_events;
 
 실패율을 구하면서 `WHERE event_type = 'failed_delivery'`로 분모까지 실패 대상만 남기면 원래 모집단을 잃습니다. 검증기는 이벤트 조건으로 분모를 좁히는 형태를 확인합니다. 다만 지원하는 조건부 DISTINCT 집계 형태를 대상으로 하며, 동등한 모든 대수 변환이나 CTE 기반 비율식을 허용하지는 않습니다. `population` 정의가 있는 지표는 이 경로 대신 등록 지표 컴파일 경로를 사용해야 합니다.
 
-## 라이브 스키마 참조 검증
+### 라이브 스키마 참조 검증
 
 `validate_schema_references()`는 `schema_context`에서 `orders(order_id TEXT, status TEXT)`처럼 한 줄에 기술된 스키마를 읽습니다. 각 SQL 스코프에서 실제 테이블·컬럼과 CTE·하위 질의·출력 별칭을 구분하고, 확인된 스키마에 없는 참조는 `unknown_table`, `unknown_column`으로 보고합니다.
 
@@ -153,25 +148,11 @@ FROM order_events;
 
 CTE·하위 질의의 출력 참조는 해당 범위의 검사를 활용하며, 모든 출력 계보·모호한 컬럼·알 수 없는 한정자·중첩 비한정 컬럼을 완전히 해석하는 검증기는 아닙니다. 실제 SQL 실행과 결과 계약 검사를 함께 사용해야 합니다.
 
-## 오류 코드와 확인 방법
-
-| 대표 코드 | 의미 |
-|---|---|
-| `sql_parse_error`, `statement_count`, `not_a_query` | 파싱 실패, 문장 수 위반, 조회형이 아닌 입력. |
-| `unknown_table`, `unknown_column` | 확인된 스키마와 참조 불일치. |
-| `missing_metric`, `metric_projection_mismatch`, `count_unit_mismatch` | 출력 집계 종류·개수·집계 단위 불일치. |
-| `missing_group_by`, `temporal_group_mismatch` | 그룹 누락 또는 날짜 버킷 불일치. |
-| `sort_direction_mismatch`, `limit_mismatch` | 정렬 방향 또는 개수 제한 불일치. |
-| `missing_filter`, `filter_value_mismatch` | 필터 누락 또는 지원하는 조건의 연산자·값 불일치. |
-| `semantic_ratio_population`, `registered_metric_query` | 등록된 비율 모집단 또는 컴파일된 지표 SQL 계약 위반. |
-
-스키마 관련 후보를 고르는 단계는 [Schema Retrieval](../tools/README.md#schema-retrieval-질문과-관련된-스키마-우선-검색), 식별자 역할 충돌 검사는 [JOIN의 의미적 유효성](../semantics/README.md#join의-의미적-유효성)에서 자세히 설명합니다.
-
-## 핵심 개념과 동작
-
 AST는 **SQL을 테이블·조건·집계 같은 구성 요소로 나눈 구조**입니다. SQLGlot 라이브러리로 이 구조를 읽고 계획과 비교합니다.
 
 SQL 계약은 “계획한 조건이 SQL에도 들어 있어야 한다”는 규칙입니다. 데이터 변경 차단은 별도로 읽기 전용 연결과 authorizer를 사용합니다. authorizer는 DB가 요청받은 작업을 허용할지 결정하는 함수입니다.
+
+## 4. 핵심 함수와 실제 코드
 
 ### 주요 함수·클래스
 
@@ -252,16 +233,52 @@ def create_read_only_connection(path: Path) -> sqlite3.Connection:
 
 query_checker와 execute_query가 읽기 전용 → SQL 계약 → 기간 → 설정 의미를 공통으로 적용합니다. DB 조회 후 결과 계약은 results에서 검사합니다. CTE 구조와 조건식은 앞 절의 개념 설명을 참고하세요.
 
-### 확인한 범위와 한계
+## 5. 구현 결과와 한계
+
+**현재 구현:** CTE와 물리 테이블을 스코프별로 구분하고 지원하는 집계·필터·스키마 계약을 검사합니다.
+
+### 오류 코드와 확인 방법
+
+| 대표 코드 | 의미 |
+|---|---|
+| `sql_parse_error`, `statement_count`, `not_a_query` | 파싱 실패, 문장 수 위반, 조회형이 아닌 입력. |
+| `unknown_table`, `unknown_column` | 확인된 스키마와 참조 불일치. |
+| `missing_metric`, `metric_projection_mismatch`, `count_unit_mismatch` | 출력 집계 종류·개수·집계 단위 불일치. |
+| `missing_group_by`, `temporal_group_mismatch` | 그룹 누락 또는 날짜 버킷 불일치. |
+| `sort_direction_mismatch`, `limit_mismatch` | 정렬 방향 또는 개수 제한 불일치. |
+| `missing_filter`, `filter_value_mismatch` | 필터 누락 또는 지원하는 조건의 연산자·값 불일치. |
+| `semantic_ratio_population`, `registered_metric_query` | 등록된 비율 모집단 또는 컴파일된 지표 SQL 계약 위반. |
+
+스키마 관련 후보를 고르는 단계는 [Schema Retrieval](../tools/README.md#schema-retrieval-질문과-관련된-스키마-우선-검색), 식별자 역할 충돌 검사는 [JOIN의 의미적 유효성](../semantics/README.md#join의-의미적-유효성)에서 자세히 설명합니다.
 
 AST와 계약 검증은 지원하는 표현 범위에 한정됩니다. authorizer는 읽기 작업을 제한하지만 큰 SELECT의 비용·민감 데이터 접근 정책·운영 사용자 권한까지 자동으로 해결하지 않습니다.
 
 관련 검증: [test_sql_ast.py](../../../tests/execution/test_sql_ast.py), [test_sql_tools.py](../../../tests/execution/test_sql_tools.py), [test_join_contract.py](../../../tests/execution/test_join_contract.py).
 
-## 함께 읽기
+<details>
+<summary>파일 목록과 관련 문서 보기</summary>
+
+### 보충 안내
+
+사용자가 확정한 분석 조건과 LLM이 만든 SQL이 일치하는지 구조적으로 검사하는 계층입니다. SQL이 실행된다는 사실만으로 요청한 집계 단위·필터·기간이 맞다고 볼 수 없으므로, 구문 분석과 계획 계약·스키마·지표 검증을 분리합니다. Baseline도 내부 분석 계획을 만들어 같은 검증 경로를 사용합니다.
+
+### 주요 파일
+
+| 파일 | 역할 |
+|---|---|
+| [sql_ast.py](sql_ast.py) | SQLite SQL 파싱, 공통 계약 예외, 스코프 기반 물리 테이블·조건 값 추출. |
+| [sql_contract.py](sql_contract.py) | 계약 검사 조율과 그룹·정렬·개수 제한·명시적 필터·업무 조건 검사. |
+| [sql_metric_contract.py](sql_metric_contract.py) | 집계 함수·필드·중복 제거·집계 단위와 등록된 의미 지표 검사. |
+| [sql_schema_contract.py](sql_schema_contract.py) | 확인된 라이브 스키마 설명과 SQL의 테이블·컬럼 참조 대조. |
+| [sql_safety.py](sql_safety.py) | 읽기 전용 SQL 경계와 DB 연결에서 데이터 변경 차단. |
+| [sql_builder.py](sql_builder.py) | 검증된 SQL의 DB 실행, 실행 계획 확인과 기본 표 형식 제공. |
+
+### 함께 읽기
 
 - [SQL Agent 및 Tool Calling](../agent/README.md)
 - [SQL Tool과 공유 상태](../tools/README.md)
 - [업무·기간·집계 규칙](../semantics/README.md)
 - [실행 결과 계약](../results/README.md)
 - [실행 계층 안내](../README.md)
+
+</details>

@@ -1,27 +1,22 @@
 # `app/a2ui` · 서버의 화면 전송 모델
 
+## 1. 이 폴더의 역할
+
 > **한눈에 보기** · 서버가 화면에 무엇을 보여줄지 데이터로 정합니다. 브라우저는 이 데이터를 받아 미리 준비된 화면 요소를 그립니다.
 
 **기본 흐름:** 계획·조회 결과 → 화면 데이터(Surface) → 브라우저 표시
 
-분석 계획과 조회 결과를 브라우저가 렌더링할 화면 데이터로 변환합니다. 컴포넌트 종류·동작·클라이언트 지원 기능을 정의합니다.
+## 2. 해결하려는 문제
 
-[화면 전송 모델의 UI 예시](../../docs/system-guide.md#분석-계획에서-확인-ui로)
+모델이 만든 화면 코드를 그대로 실행하면 표시 방식과 실행 동작을 통제하기 어렵습니다. 화면을 데이터로 전달하고, 등록된 요소로 표시하도록 제한합니다.
 
-## 주요 파일
-
-| 파일 | 역할 |
-|---|---|
-| [adapter.py](adapter.py) | 두 모드의 조회 결과를 공통 A2UI 화면 형식으로 변환한다. |
-| [catalog.py](catalog.py) | 지원 UI 컴포넌트와 클라이언트 기능 선언. |
-| [models.py](models.py) | 화면·컴포넌트·액션·지원 기능의 Pydantic 전송 모델. |
-| [review.py](review.py) | A2UI 전용 검토 계획을 화면 데이터로 변환하고 저장한다. |
-
-## 핵심 개념과 동작
+## 3. 핵심 기술
 
 Surface는 서버가 보내는 **화면 설명 데이터**입니다. Component는 선택 상자나 표처럼 화면을 이루는 요소입니다.
 
 서버는 실행할 HTML 대신 JSON 데이터를 보냅니다. 브라우저가 지원하는 요소와 서버에 등록된 요소 중에서 사용할 것을 고릅니다.
+
+## 4. 핵심 함수와 실제 코드
 
 ### 주요 함수·클래스
 
@@ -68,13 +63,35 @@ def _supported_type(component_type: str, supported: set[str], fallbacks: list[di
 
 planning의 UiPlan은 review.schema_review_surface를 거쳐 계획 Surface가 되고, 실행 결과는 adapter.analysis_result_to_surface를 거쳐 결과 Surface가 됩니다. 브라우저의 js/surfaces/runtime.js가 이를 검증·렌더링합니다.
 
-### 확인한 범위와 한계
+## 5. 구현 결과와 한계
+
+**현재 구현:** 등록된 화면 요소와 클라이언트 지원 목록을 기준으로 표시 유형을 선택합니다.
 
 이름은 Agent2UI이지만 외부 A2UI 규격과 완전 호환을 검증한 구현은 아닙니다. 지원 목록은 표현 능력에 대한 정보이며 권한·SQL 실행 허가가 아닙니다. 자료형 검증과 런타임 렌더링 검증 범위도 다릅니다.
 
 관련 검증: [test_sql_tools.py](../../tests/execution/test_sql_tools.py), [test_review_update.py](../../tests/a2ui/test_review_update.py).
 
-## 함께 읽기
+<details>
+<summary>파일 목록과 관련 문서 보기</summary>
+
+### 보충 안내
+
+분석 계획과 조회 결과를 브라우저가 렌더링할 화면 데이터로 변환합니다. 컴포넌트 종류·동작·클라이언트 지원 기능을 정의합니다.
+
+[화면 전송 모델의 UI 예시](../../docs/system-guide.md#분석-계획에서-확인-ui로)
+
+### 주요 파일
+
+| 파일 | 역할 |
+|---|---|
+| [adapter.py](adapter.py) | 두 모드의 조회 결과를 공통 A2UI 화면 형식으로 변환한다. |
+| [catalog.py](catalog.py) | 지원 UI 컴포넌트와 클라이언트 기능 선언. |
+| [models.py](models.py) | 화면·컴포넌트·액션·지원 기능의 Pydantic 전송 모델. |
+| [review.py](review.py) | A2UI 전용 검토 계획을 화면 데이터로 변환하고 저장한다. |
+
+### 함께 읽기
 
 - [앱 전체 구조](../README.md)
 - [프로젝트 소개](../../README.md)
+
+</details>

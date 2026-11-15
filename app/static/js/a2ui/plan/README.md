@@ -1,34 +1,28 @@
 # `app/static/js/a2ui/plan` · 분석 계획 편집 UI
 
+## 1. 이 폴더의 역할
+
 > **한눈에 보기** · 서버가 정한 편집 항목을 화면에 표시하고, 사용자가 바꾼 값을 계획에 반영합니다. 지표를 바꾸면 연관된 항목도 함께 맞춥니다.
 
 **기본 흐름:** 계획·화면 정의 → 입력 UI → 값·연관 항목 갱신 → 확정 전 검사
 
-분석 계획을 정규화하고 입력 블록·안내 문장·변경 차이·필수값 검사를 구성합니다.
+## 2. 해결하려는 문제
 
-## 주요 파일
+지표만 바꾸고 관련 단위·분자·분모를 그대로 두면 일관되지 않은 계획이 됩니다. 입력을 반영할 때 연관 값을 정리하고 확정 전에 검사합니다.
 
-| 파일 | 역할 |
-|---|---|
-| [condition-evaluator.js](condition-evaluator.js) | UI 블록의 표시·필수 입력 조건 평가. |
-| [plan-diff.js](plan-diff.js) | 최초 계획과 수정 계획의 변경 값·필드 계산. |
-| [plan-labels.js](plan-labels.js) | 단위·지표·기간·집계 기준의 한글 표시 이름과 조사 처리. |
-| [plan-normalizer.js](plan-normalizer.js) | 계획·UI 블록·집계 기준·필드 간 의존성 정규화. |
-| [plan-renderer.js](plan-renderer.js) | 계획 카드·입력 블록 렌더링과 수정·확정 요청 데이터 구성. |
-| [plan-sentence.js](plan-sentence.js) | 현재 계획의 분석 의미를 사용자 안내 문장으로 표현. |
-| [plan-validation.js](plan-validation.js) | 확정 전 필수값·미해결 조건·계획 유효성 검사. |
+## 3. 핵심 기술
 
-## 카드 검토 화면
+계획 렌더러는 서버의 블록 순서·라벨·section을 사용하고 값은 AnalysisPlan에서 읽습니다. 지표 변경은 단순 필드 대입 이후 분자·분모·단위·대표 지표 복사본 같은 의존 필드를 갱신합니다. diff는 정규화된 최초 계획과 현재 계획을 비교해 관찰용 변경 경로를 계산합니다.
+
+## 4. 핵심 함수와 실제 코드
+
+### 카드 검토 화면
 
 결과 지표(다중 지표 포함), 집계 기준, 분석 기간, 대상 이벤트를 네 카드로 묶습니다.
 선택한 카드의 서버 발급 입력만 펼치고 나머지 입력은 세부 조건에서 제공합니다.
 `변경 저장`은 서버 검증과 revision 갱신을 수행하며, 실행 버튼도 미저장 변경을 먼저 저장합니다.
 최초 추천 스냅샷과 마지막 저장 스냅샷을 분리해 변경 표시와 초기화를 유지합니다.
 자연어 수정은 공통 채팅창에서 기존 refine API로 전달하고, 새 추천 이후에는 그 계획을 초기화 기준으로 삼습니다.
-
-## 핵심 개념과 동작
-
-계획 렌더러는 서버의 블록 순서·라벨·section을 사용하고 값은 AnalysisPlan에서 읽습니다. 지표 변경은 단순 필드 대입 이후 분자·분모·단위·대표 지표 복사본 같은 의존 필드를 갱신합니다. diff는 정규화된 최초 계획과 현재 계획을 비교해 관찰용 변경 경로를 계산합니다.
 
 ### 주요 함수·클래스
 
@@ -120,14 +114,37 @@ plan.metrics = (plan.metrics || []).map((metric) => JSON.stringify(metric) === J
 
 입력 위젯 update → applyLocalPlanEdit → 필수값 재계산 → 다시 그리기 순서입니다. buildConfirmPayload는 diff·Surface ID·revision을 묶고 서버는 다시 동일한 편집 의미를 검증합니다. 브라우저 계산은 편집 편의를 위한 것이며 서버 권위 값을 대체하지 않습니다.
 
-### 확인한 범위와 한계
+## 5. 구현 결과와 한계
+
+**현재 구현:** 계획에서 현재 값을 읽고, 지표 변경에 따른 연관 항목을 갱신합니다.
 
 JS와 Python의 조건 평가가 모든 자료형에서 완전히 같은 것은 아닙니다. 배열·빈 객체·형 변환 등에 경계가 있으므로 서버 검증이 최종 기준입니다. 프론트 diff는 신뢰된 보안 감사 로그가 아닙니다.
 
 관련 검증: [review-plan.test.js](../../../../../tests/js/review-plan.test.js), [test_dynamic_blueprint.py](../../../../../tests/a2ui/test_dynamic_blueprint.py).
 
-## 함께 읽기
+<details>
+<summary>파일 목록과 관련 문서 보기</summary>
+
+### 보충 안내
+
+분석 계획을 정규화하고 입력 블록·안내 문장·변경 차이·필수값 검사를 구성합니다.
+
+### 주요 파일
+
+| 파일 | 역할 |
+|---|---|
+| [condition-evaluator.js](condition-evaluator.js) | UI 블록의 표시·필수 입력 조건 평가. |
+| [plan-diff.js](plan-diff.js) | 최초 계획과 수정 계획의 변경 값·필드 계산. |
+| [plan-labels.js](plan-labels.js) | 단위·지표·기간·집계 기준의 한글 표시 이름과 조사 처리. |
+| [plan-normalizer.js](plan-normalizer.js) | 계획·UI 블록·집계 기준·필드 간 의존성 정규화. |
+| [plan-renderer.js](plan-renderer.js) | 계획 카드·입력 블록 렌더링과 수정·확정 요청 데이터 구성. |
+| [plan-sentence.js](plan-sentence.js) | 현재 계획의 분석 의미를 사용자 안내 문장으로 표현. |
+| [plan-validation.js](plan-validation.js) | 확정 전 필수값·미해결 조건·계획 유효성 검사. |
+
+### 함께 읽기
 
 - [상위 폴더 안내](../README.md)
 - [앱 전체 구조](../../../../README.md)
 - [프로젝트 소개](../../../../../README.md)
+
+</details>

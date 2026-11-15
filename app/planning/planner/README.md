@@ -1,28 +1,22 @@
 # `app/planning/planner` · 공통 LLM 계획 생성기
 
+## 1. 이 폴더의 역할
+
 > **한눈에 보기** · LLM에게 질문을 분석 계획 형식으로 정리하도록 요청합니다. 응답을 받은 뒤 형식과 선택값을 다시 검사합니다.
 
 **기본 흐름:** 질문·스키마 → 모델 응답 → 정리·검사 → 계획
 
-질문을 구조화된 분석 계획으로 바꾸는 공통 모델 호출·응답 복구·문맥 상속·의미 검증을 담당합니다. Baseline은 `AnalysisDraft`와 `include_ui=False`로 화면 없이 계획을 만들고, A2UI는 `PlannerDraft`로 동적 UI와 추천 조건을 추가합니다. UI 검증 실패가 Baseline의 실행 조건이 되지 않습니다.
+## 2. 해결하려는 문제
 
-## 주요 파일
+자유 형식의 모델 응답은 필드가 빠지거나 존재하지 않는 선택값을 포함할 수 있습니다. 정해진 형식으로 응답을 받고 실제 스키마와 대조합니다.
 
-| 파일 | 역할 |
-|---|---|
-| [context.py](context.py) | 후속 분석의 참조 후보 선택·조건 상속·식별자 필터 근거를 처리한다. |
-| [controls.py](controls.py) | 검토용 UI의 선택지·기본 입력·중복·배치와 스키마 근거를 정리한다. |
-| [dynamic_planner.py](dynamic_planner.py) | Baseline과 A2UI가 공유하는 LLM 분석 계획 생성 진입점. |
-| [models.py](models.py) | 계획 생성 응답과 후속 분석 맥락을 표현하는 모델. |
-| [prompt.py](prompt.py) | 질문·스키마·이전 분석 후보를 계획 및 UI 생성 프롬프트로 구성한다. |
-| [response.py](response.py) | LLM 응답의 구조·타입·필드·UI 원시 값을 복구하고 모델로 검증한다. |
-| [semantics.py](semantics.py) | 분석 지표·관계 범위를 정리하고 분석 의미와 날짜 안내의 일관성을 검증한다. |
-
-## 핵심 개념과 동작
+## 3. 핵심 기술
 
 Structured Output은 **모델의 답을 정해진 형식으로 받는 방식**입니다. 이 프로젝트는 모델 공급자에 맞춰 JSON Schema 또는 함수 호출 형식을 사용합니다. 받은 초안은 다시 정리하고 검사합니다.
 
 Baseline은 `include_ui=False`로 계획만 만듭니다. Agent2UI는 계획과 함께 사용자가 편집할 화면 항목도 준비합니다.
+
+## 4. 핵심 함수와 실제 코드
 
 ### 주요 함수·클래스
 
@@ -110,14 +104,37 @@ paths, keys = set(), set()
 
 `prompt → 모델 호출 → response 정규화 → semantics 보정 → context 상속 → controls 선택지 검사 → 기간 미리보기 → 의미 검증` 순서입니다. 구조 오류(ValueError/TypeError)는 피드백을 붙여 기본 2회 시도하고, 공급자 장애는 공통 일시 오류 재시도 후 조건 확인 계획으로 돌아갑니다. 현재 질문에서 명시·덮어쓰기한 필드는 상속하지 않습니다.
 
-### 확인한 범위와 한계
+## 5. 구현 결과와 한계
+
+**현재 구현:** 모델 응답 초안을 계획 모델로 정리하고 모드에 따라 검토 UI를 구성합니다.
 
 응답 복구는 알려진 필드·별칭 처리이며 누락된 업무 의미를 정답으로 추측하는 기능이 아닙니다. confidence는 모델 응답 값이고 정확도 측정치가 아닙니다. 모델 API 장애와 구조 오류의 복구 가능성을 구분합니다.
 
 관련 검증: [test_baseline_plan.py](../../../tests/a2ui/test_baseline_plan.py), [test_prompt_compaction.py](../../../tests/a2ui/test_prompt_compaction.py), [test_dynamic_blueprint.py](../../../tests/a2ui/test_dynamic_blueprint.py), [test_gpt_structured_transport.py](../../../tests/test_gpt_structured_transport.py).
 
-## 함께 읽기
+<details>
+<summary>파일 목록과 관련 문서 보기</summary>
+
+### 보충 안내
+
+질문을 구조화된 분석 계획으로 바꾸는 공통 모델 호출·응답 복구·문맥 상속·의미 검증을 담당합니다. Baseline은 `AnalysisDraft`와 `include_ui=False`로 화면 없이 계획을 만들고, A2UI는 `PlannerDraft`로 동적 UI와 추천 조건을 추가합니다. UI 검증 실패가 Baseline의 실행 조건이 되지 않습니다.
+
+### 주요 파일
+
+| 파일 | 역할 |
+|---|---|
+| [context.py](context.py) | 후속 분석의 참조 후보 선택·조건 상속·식별자 필터 근거를 처리한다. |
+| [controls.py](controls.py) | 검토용 UI의 선택지·기본 입력·중복·배치와 스키마 근거를 정리한다. |
+| [dynamic_planner.py](dynamic_planner.py) | Baseline과 A2UI가 공유하는 LLM 분석 계획 생성 진입점. |
+| [models.py](models.py) | 계획 생성 응답과 후속 분석 맥락을 표현하는 모델. |
+| [prompt.py](prompt.py) | 질문·스키마·이전 분석 후보를 계획 및 UI 생성 프롬프트로 구성한다. |
+| [response.py](response.py) | LLM 응답의 구조·타입·필드·UI 원시 값을 복구하고 모델로 검증한다. |
+| [semantics.py](semantics.py) | 분석 지표·관계 범위를 정리하고 분석 의미와 날짜 안내의 일관성을 검증한다. |
+
+### 함께 읽기
 
 - [상위 폴더 안내](../README.md)
 - [앱 전체 구조](../../README.md)
 - [프로젝트 소개](../../../README.md)
+
+</details>

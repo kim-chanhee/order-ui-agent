@@ -1,36 +1,22 @@
 # `app/planning` · 분석 계획과 편집 UI 정의
 
+## 1. 이 폴더의 역할
+
 > **한눈에 보기** · 자연어 질문을 기간·필터·지표 같은 분석 조건으로 정리합니다. 이 계획이 화면 편집과 SQL 실행의 공통 기준이 됩니다.
 
 **기본 흐름:** 질문 → 분석 계획 → 값·필수 조건 검사
 
-질문·DB 스키마·이전 분석을 기간·대상·지표·필터·집계 기준으로 구조화하고 검토용 UI 정의를 만듭니다.
+## 2. 해결하려는 문제
 
-[분석 계획이 UI로 연결되는 예시](../../docs/system-guide.md#분석-계획에서-확인-ui로)
+질문을 바로 SQL로 바꾸면 AI가 어떤 조건으로 이해했는지 사람이 확인하기 어렵습니다. 기간·지표·필터를 계획 데이터로 먼저 표현합니다.
 
-## 주요 파일
-
-| 파일 | 역할 |
-|---|---|
-| [analysis_models.py](analysis_models.py) | SQL과 분리된 의미 기반 분석 계획을 Pydantic 모델로 정의한다. |
-| [option_catalog.py](option_catalog.py) | 스키마와 현재 분석 계획에 근거한 확인 화면 선택지를 만든다. |
-| [schema_context.py](schema_context.py) | 실제 데이터베이스에서 질문과 관련된 계획 수립용 스키마 맥락을 수집한다. |
-| [service.py](service.py) | Baseline과 A2UI가 공유하는 분석 계획 생성 서비스. |
-| [ui_models.py](ui_models.py) | 두 모드가 공유하는 선언형 UI와 분석 계획 응답 모델. |
-| [validator.py](validator.py) | 두 모드가 공유하는 UI 조건 평가와 필수 입력 필드 계산. |
-
-## 하위 폴더 안내
-
-| 폴더 | 역할 |
-|---|---|
-| [a2ui/](a2ui/README.md) | 계획 검토·추가 조건·편집 검증 |
-| [planner/](planner/README.md) | 공통 LLM 계획 생성기 |
-
-## 핵심 개념과 동작
+## 3. 핵심 기술
 
 AnalysisPlan은 **분석 조건을 담은 데이터**입니다. 기간·필터·지표·집계 기준을 여기에 저장합니다. UiBlock은 사용자가 어떤 항목을 편집할지 정하는 화면 설명입니다.
 
 Pydantic은 값의 형식과 범위를 검사하는 라이브러리입니다. 서버는 여기에 스키마에서 확인한 선택지 목록을 더해 실제로 허용되는 값인지 검사합니다.
+
+## 4. 핵심 함수와 실제 코드
 
 ### 주요 함수·클래스
 
@@ -82,13 +68,44 @@ return list(dict.fromkeys(missing))
 
 `build_review_plan → build_schema_review_plan → planner.plan_dynamic_analysis`가 UiPlan을 구성합니다. `schema_context`는 실제 스키마를 압축하고 `option_catalog`는 검증 가능한 값 목록을 제공합니다. 계획의 `field_metadata`는 명시·추정·상속·사용자 수정의 출처를 구분합니다.
 
-### 확인한 범위와 한계
+## 5. 구현 결과와 한계
+
+**현재 구현:** 화면에 표시되고 실제 입력 가능한 필수 항목을 기준으로 누락값을 계산합니다.
 
 구조적 유효성이 업무 해석의 정답을 뜻하지 않습니다. 후속 조건 상속과 비율 정의는 추가 검증을 통과해야 하며, 필수값이나 미해결 조건이 남으면 확정 실행을 차단합니다.
 
 관련 검증: [test_dynamic_blueprint.py](../../tests/a2ui/test_dynamic_blueprint.py), [test_baseline_plan.py](../../tests/a2ui/test_baseline_plan.py), [test_data_profile.py](../../tests/test_data_profile.py).
 
-## 함께 읽기
+<details>
+<summary>파일 목록과 관련 문서 보기</summary>
+
+### 보충 안내
+
+질문·DB 스키마·이전 분석을 기간·대상·지표·필터·집계 기준으로 구조화하고 검토용 UI 정의를 만듭니다.
+
+[분석 계획이 UI로 연결되는 예시](../../docs/system-guide.md#분석-계획에서-확인-ui로)
+
+### 주요 파일
+
+| 파일 | 역할 |
+|---|---|
+| [analysis_models.py](analysis_models.py) | SQL과 분리된 의미 기반 분석 계획을 Pydantic 모델로 정의한다. |
+| [option_catalog.py](option_catalog.py) | 스키마와 현재 분석 계획에 근거한 확인 화면 선택지를 만든다. |
+| [schema_context.py](schema_context.py) | 실제 데이터베이스에서 질문과 관련된 계획 수립용 스키마 맥락을 수집한다. |
+| [service.py](service.py) | Baseline과 A2UI가 공유하는 분석 계획 생성 서비스. |
+| [ui_models.py](ui_models.py) | 두 모드가 공유하는 선언형 UI와 분석 계획 응답 모델. |
+| [validator.py](validator.py) | 두 모드가 공유하는 UI 조건 평가와 필수 입력 필드 계산. |
+
+### 하위 폴더 안내
+
+| 폴더 | 역할 |
+|---|---|
+| [a2ui/](a2ui/README.md) | 계획 검토·추가 조건·편집 검증 |
+| [planner/](planner/README.md) | 공통 LLM 계획 생성기 |
+
+### 함께 읽기
 
 - [앱 전체 구조](../README.md)
 - [프로젝트 소개](../../README.md)
+
+</details>

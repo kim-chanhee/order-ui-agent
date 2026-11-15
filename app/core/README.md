@@ -1,25 +1,22 @@
 # `app/core` · 모델 연결 설정과 시작 점검
 
+## 1. 이 폴더의 역할
+
 > **한눈에 보기** · 어떤 모델과 DB를 사용할지 정하고, 모델 호출 제한과 사용량을 관리합니다. 여러 기능이 같은 설정을 사용하도록 모읍니다.
 
 **기본 흐름:** 설정 읽기 → 모델·데이터 선택 → 호출 제한·사용량 관리
 
-환경 변수에서 LLM 연결 설정을 읽고 앱 기동에 필요한 DB·상태 저장소·실험 설정을 점검합니다.
+## 2. 해결하려는 문제
 
-## 주요 파일
+기능마다 모델·DB 설정을 따로 읽으면 서로 다른 연결이나 업무 설정을 사용할 수 있습니다. 공통 설정과 요청별 사용량 관리를 통해 적용 기준을 맞춥니다.
 
-| 파일 | 역할 |
-|---|---|
-| [llm_settings.py](llm_settings.py) | SQL 에이전트가 쓸 OpenAI 호환 LLM 연결 값을 환경 변수에서 고른다. |
-| [model_errors.py](model_errors.py) | 공급자 오류를 분류하고 일시적 오류만 제한 재시도한다. |
-| [llm_usage.py](llm_usage.py) | 요청별 호출 상한과 실제 보고 토큰을 관리한다. 프롬프트·키는 기록하지 않는다. |
-| [startup_checks.py](startup_checks.py) | 앱 기동 시 로컬 자원이 쓸 수 있는지 검사한다. |
-
-## 핵심 개념과 동작
+## 3. 핵심 기술
 
 Structured Output은 **모델의 답을 정해진 데이터 형식으로 받는 방식**입니다. 모델 공급자마다 지원 방식이 달라 공통 설정에서 이를 맞춥니다.
 
 요청별 사용량은 ContextVar로 따로 집계합니다. 여러 요청이 동시에 처리되어도 각 요청의 기록을 구분하기 위한 장치입니다.
+
+## 4. 핵심 함수와 실제 코드
 
 ### 주요 함수·클래스
 
@@ -97,13 +94,33 @@ return payload
 
 `server.load_dotenv → database.apply_data_profile → 설정 모듈 초기화 → lifespan.run_startup_checks` 순서입니다. 모델 호출은 chat_model_kwargs의 callback을 사용하며 track_llm_request는 같은 요청 안에서 중첩되면 기존 계측 범위를 재사용합니다.
 
-### 확인한 범위와 한계
+## 5. 구현 결과와 한계
+
+**현재 구현:** 공급자별 구조화 응답 옵션을 공통으로 적용하고, 데이터 프로필은 검증 후 한꺼번에 반영합니다.
 
 한도는 요청 수·입력 크기·출력 토큰에 대한 제한이며 금액 예산 보장은 아닙니다. 공급자의 usage 응답 누락은 usage_complete로 구분합니다. 시작 점검은 네트워크 모델 호출을 수행하지 않아 API 연결 품질을 확인하지는 않습니다.
 
 관련 검증: [test_data_profile.py](../../tests/test_data_profile.py), [test_llm_usage.py](../../tests/test_llm_usage.py), [test_gpt_structured_transport.py](../../tests/test_gpt_structured_transport.py), [test_local_llm_transport.py](../../tests/test_local_llm_transport.py), [test_model_errors.py](../../tests/test_model_errors.py).
 
-## 함께 읽기
+<details>
+<summary>파일 목록과 관련 문서 보기</summary>
+
+### 보충 안내
+
+환경 변수에서 LLM 연결 설정을 읽고 앱 기동에 필요한 DB·상태 저장소·실험 설정을 점검합니다.
+
+### 주요 파일
+
+| 파일 | 역할 |
+|---|---|
+| [llm_settings.py](llm_settings.py) | SQL 에이전트가 쓸 OpenAI 호환 LLM 연결 값을 환경 변수에서 고른다. |
+| [model_errors.py](model_errors.py) | 공급자 오류를 분류하고 일시적 오류만 제한 재시도한다. |
+| [llm_usage.py](llm_usage.py) | 요청별 호출 상한과 실제 보고 토큰을 관리한다. 프롬프트·키는 기록하지 않는다. |
+| [startup_checks.py](startup_checks.py) | 앱 기동 시 로컬 자원이 쓸 수 있는지 검사한다. |
+
+### 함께 읽기
 
 - [앱 전체 구조](../README.md)
 - [프로젝트 소개](../../README.md)
+
+</details>

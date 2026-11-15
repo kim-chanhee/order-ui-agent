@@ -1,5 +1,9 @@
 # 폴더와 모드별 코드 배치
 
+> **한눈에 보기** · 질문을 받아 분석 계획을 만들고, SQL을 검사한 뒤 결과를 화면에 보여주는 서버입니다.
+
+**기본 흐름:** 질문 접수 → 계획 생성 → SQL 검사·실행 → 결과 전달
+
 [전체 시스템 구조도](../README.md#시스템-구조)
 
 ## 앱 진입점
@@ -43,6 +47,66 @@
 | [runtime/](runtime/README.md) | 대화 상태와 취소 가능한 실행 |
 | [static/](static/README.md) | 프론트엔드 정적 리소스 |
 | [templates/](templates/README.md) | 웹 앱 HTML 셸 |
+
+## 핵심 개념과 동작
+
+서버는 FastAPI의 라우터를 서비스 계층에 연결하고, Pydantic 모델로 요청·분석 계획·화면 전송 값을 구분합니다. 분석 계획은 SQL 생성 이전의 공통 계약이며 Baseline은 즉시 실행, Agent2UI는 사용자의 수정·확정 후 실행합니다. 기능 폴더별 자세한 알고리즘은 하위 README에서 설명합니다.
+
+### 주요 함수·클래스
+
+| 함수·클래스 | 구체적인 역할 | 관련 기술 |
+|---|---|---|
+| `lifespan` | 요청 수락 전에 시작 점검 수행 | FastAPI lifespan |
+| `http_error_handler` | HTTP 예외를 공통 오류 본문으로 변환 | 오류 경계 |
+| `main` | 설정된 주소에서 서버 실행 | Uvicorn |
+
+### 핵심 코드: validation_error_handler
+
+자료형 검증 오류를 클라이언트가 처리할 수 있는 응답으로 바꿉니다.
+
+**동작:** Pydantic 오류의 위치를 점 경로로 만들고 공통 오류 payload에 넣어 422를 반환합니다.
+
+**설계:** FastAPI 예외 핸들러를 사용합니다. 입력 오류와 처리되지 않은 500 오류의 응답 계약을 분리합니다.
+
+**예:** 필수 question이 없는 요청은 필드 경로와 메시지가 있는 422 응답이 됩니다.
+
+<details>
+<summary>실제 코드와 원본 위치 보기</summary>
+
+원본: [app/server.py](server.py#L74). 아래는 실제 코드의 74~78행 발췌이며 앞뒤는 생략했습니다.
+
+```python
+async def validation_error_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
+    """요청 본문/쿼리 검증 실패를 필드별 메시지가 담긴 422로 돌려준다."""
+
+    field_errors = [{"field": ".".join(map(str, error.get("loc", []))), "message": error.get("msg", "")} for error in exc.errors()]
+    return JSONResponse(status_code=422, content=api_error_payload(PLAN_VALIDATION_ERROR, "요청 형식을 확인해 주세요.", field_errors=field_errors))
+```
+
+</details>
+
+### 다른 기능과 연결되는 순서
+
+실제 진입은 `server.py → routes → chat/dispatch`입니다. 새 분석은 `planning → execution`, 기존 결과 재표시는 저장 결과로 분기합니다. Agent2UI 계획 화면은 `a2ui/review → runtime/a2ui/surfaces`에 저장한 뒤 확정 API로 실행합니다.
+
+```mermaid
+flowchart TD
+    A["HTTP 요청"] --> B["라우팅과 대화 문맥"]
+    B --> C["공통 분석 계획"]
+    C --> D{"입력 방식"}
+    D -->|Baseline| F["공통 SQL 검증·실행"]
+    D -->|Agent2UI| E["계획 표시·수정·확정"]
+    E --> F
+    F --> G["결과 계약·공통 화면"]
+```
+
+다이어그램은 계층의 개념 흐름입니다. 구체적인 API와 분기는 [routes](routes/README.md), [chat](chat/README.md), [실행 계층](execution/README.md)을 참고하세요.
+
+### 확인한 범위와 한계
+
+시작 점검은 실제 LLM 호출의 성공을 증명하지 않습니다. 자동 테스트는 대체 모델과 임시 DB 중심이며 실모델 해석 품질·전체 브라우저 조작·운영 인증까지 검증한 것은 아닙니다.
+
+관련 검증: [test_turn_router.py](../tests/test_turn_router.py), [test_sql_tools.py](../tests/execution/test_sql_tools.py).
 
 ## 함께 읽기
 

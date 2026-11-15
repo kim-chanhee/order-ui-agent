@@ -1,5 +1,9 @@
 # `app/execution/semantics` · 업무 의미와 집계 규칙
 
+> **한눈에 보기** · 주문 수와 이벤트 수의 차이처럼, 테이블 구조만으로 알기 어려운 업무 규칙을 관리합니다. 기간의 기준일과 집계 대상도 여기서 정합니다.
+
+**기본 흐름:** 업무 설정 → 집계·관계·기간 규칙 → SQL 생성·검사에 제공
+
 업무 의미와 집계 규칙을 담당합니다.
 
 ## 주요 파일
@@ -77,6 +81,102 @@ WHERE l.kind = 'contains';
 - 이름 기반 역할 선언은 실제 스키마의 컬럼 존재를 증명하지 않습니다. 라이브 스키마 계약 검사와 함께 적용합니다.
 - 빈 조회 결과나 실제 값 하나의 일치는 JOIN의 의미적 유효성을 보장하지 않습니다.
 - 설정이 부족하거나 잘못되어 있으면 역할 검증이 탐지하지 못하거나 잘못된 역할 근거를 사용할 수 있습니다.
+
+## 핵심 개념과 동작
+
+업무 의미 설정은 **무엇을 한 건으로 세고, 어떤 대상을 연결할지 정한 규칙**입니다. 같은 ID 형식이라도 주문과 패키지는 서로 다른 대상입니다.
+
+비율 지표에서는 전체 대상(population)과 조건에 해당하는 대상(subset)을 나눕니다. LEFT JOIN으로 연결해 해당 건수가 0인 그룹도 남깁니다. 별칭은 현재 질문에 실제로 등장한 표현에만 적용합니다.
+
+### 주요 함수·클래스
+
+| 함수·클래스 | 구체적인 역할 | 관련 기술 |
+|---|---|---|
+| `load_analysis_semantics` | 경로·파일 크기·수정 시각으로 의미 설정 캐시 | 설정 캐시 무효화 |
+| `canonical_values_for_text` | 질문의 별칭을 표준 값으로 연결 | 의미 grounding |
+| `validate_join_roles` | 확인된 식별자 역할 충돌 차단 | CTE 역할 계보 |
+| `validate_relative_time_sql` | 필터 없는 데이터 MAX anchor와 날짜 창 검사 | Temporal anchor |
+| `compile_registered_metric` | 모집단·부분집합 공통 SQL 컴파일 | 정의 기반 지표 |
+
+### 핵심 코드: validate_relative_time_sql
+
+최근 기간을 실행 머신의 오늘이 아니라 데이터셋의 시간축에 맞춥니다.
+
+**동작:** 확정 기간을 읽고 머신 시계·미지원 INTERVAL을 거절한 뒤 필터 없는 MAX anchor CTE를 찾습니다.
+
+**설계:** 지원 SQL 패턴을 인용·주석 정리와 함께 검증합니다. 실패 이벤트만의 MAX를 기준일로 삼으면 모집단의 기간이 뒤로 이동할 수 있기 때문입니다.
+
+**예:** 최근 2일은 기준일 하루 전부터 시작하며 타임스탬프 상한은 다음날 미만 형태로 교정될 수 있습니다.
+
+<details>
+<summary>실제 코드와 원본 위치 보기</summary>
+
+원본: [app/execution/semantics/temporal_policy.py](temporal_policy.py#L95). 아래는 실제 코드의 95~111행 발췌이며 앞뒤는 생략했습니다.
+
+```python
+relative_required, spec = _authoritative_relative_spec(question, temporal_context)
+if not relative_required:
+    return sql
+inspected_sql = _strip_sql_comments(sql)
+if _MACHINE_CLOCK_PATTERN.search(inspected_sql):
+    raise ValueError(
+        "relative time windows must use the relevant data maximum, not the machine clock"
+    )
+if _INTERVAL_PATTERN.search(inspected_sql):
+    raise ValueError("SQLite relative windows must not use unsupported INTERVAL syntax")
+
+anchor = _find_unfiltered_data_anchor(inspected_sql)
+if anchor is None:
+    raise ValueError(
+        "relative time SQL must define an unfiltered anchor CTE shaped like "
+        "SELECT MAX(date_column) AS anchor_at FROM relevant_table"
+    )
+```
+
+</details>
+
+### 핵심 코드: try_registered_metric
+
+등록 지표도 일반 SQL과 같은 실행 경계를 통과시킵니다.
+
+**동작:** 컴파일 SQL의 실제 테이블을 확인하고 공유 상태를 만든 뒤 검사 Tool과 실행 Tool을 호출합니다.
+
+**설계:** LLM 없는 컴파일과 공통 Tool 검증 조합입니다. 등록된 분모·관계 정의를 보존하면서 안전성·스키마·결과 검증을 우회하지 않습니다.
+
+**예:** 등록 비율 지표는 population_count·subset_count·rate 행을 반환하고 경로를 registered_metric으로 남깁니다.
+
+<details>
+<summary>실제 코드와 원본 위치 보기</summary>
+
+원본: [app/execution/semantics/registered_metrics.py](registered_metrics.py#L133). 아래는 실제 코드의 133~145행 발췌이며 앞뒤는 생략했습니다.
+
+```python
+tables=sorted(extract_physical_tables(sql))
+schema=str(get_table_schema.invoke({'table_names':','.join(tables)}))
+state=SqlToolState(inspected_tables=set(tables), schema_context=[schema], require_schema_inspection=True)
+kwargs=dict(question=confirmed_context.semantic_validation_text(), confirmed_plan=confirmed_context.confirmed_plan,
+            temporal_context=confirmed_context.temporal_context, state=state)
+checked=make_query_checker_tool(**kwargs).invoke({'sql':sql})
+if checked.startswith('Error:'):
+    raise ValueError(checked)
+execute, successes=make_execute_query_tool(**kwargs)
+result=execute.invoke({'sql':checked})
+if not successes:
+    raise ValueError(result)
+executed, columns, rows=successes[-1]
+```
+
+</details>
+
+### 다른 기능과 연결되는 순서
+
+planning의 카탈로그와 실행 문맥이 의미 설정을 공유합니다. timeline_anchor는 기간 미리보기와 SQL 검사에 사용하고, JOIN 역할 검증은 sql_contract 파싱 직후, 등록 지표 컴파일은 confirmed_execution에서 먼저 시도합니다.
+
+### 확인한 범위와 한계
+
+기간 검사는 지원하는 SQL 패턴 중심이며 일반적인 모든 날짜식의 동등성 검증기가 아닙니다. 설정이 누락되면 역할이 미확인 상태로 남을 수 있습니다. 별칭·의미 설정은 실제 스키마나 데이터의 정답 보증이 아닙니다.
+
+관련 검증: [test_registered_metrics.py](../../../tests/execution/test_registered_metrics.py), [test_join_contract.py](../../../tests/execution/test_join_contract.py), [test_data_profile.py](../../../tests/test_data_profile.py).
 
 ## 함께 읽기
 

@@ -1,5 +1,9 @@
 # 데이터 안내 · 어떤 데이터로 무엇을 분석하나요?
 
+> **한눈에 보기** · 주문 분석용 공개 데이터와 사용자 연구용 비공개 자료를 구분합니다. 필요한 DB의 출처와 준비 방법도 설명합니다.
+
+**기본 흐름:** 데이터 출처 확인 → DB 준비 → 스키마·업무 설정 연결
+
 이 프로젝트는 **주문 업무를 표현하는 공개 이벤트 로그**와 **인터페이스를 평가한 비공개 연구 자료**를 구분합니다. GitHub에는 DB 파일 대신 출처와 구조 설명, 스키마 설정, 분석 코드를 제공합니다. 필요한 DB는 원 배포처에서 직접 준비합니다.
 
 | 구분 | 내용 | 저장소에 포함하는 것 |
@@ -94,3 +98,60 @@ ORDER_UI_STATE_DB_PATH=Data/runtime_state.sqlite
 ## 6. A2UI 연구 자료는 별도 데이터입니다
 
 [Data/A2UI](A2UI/README.md)의 노트북은 위 주문 로그 자체가 아니라, **인터페이스 비교 실험에서 수집한 설문과 행동 로그**를 분석합니다. 설문 원자료·참가자 목록·개별 로그는 배포하지 않으며, 노트북은 출력이 제거된 분석 코드로 제공합니다. 필요한 입력 자료와 실행 순서는 해당 폴더 안내를 참고하세요.
+
+## 핵심 개념과 동작
+
+OCEL은 사건(Event), 객체(Object), 사건-객체 및 객체-객체 관계를 분리하는 데이터 표현입니다. 한 사건이 여러 객체와 연결되어 JOIN 뒤 행 수가 늘 수 있으므로 테이블 행 수와 대상 엔터티의 고유 개수를 구분합니다. 새로운 도메인에서는 키와 관계의 선언을 먼저 읽고 시간 기준·업무 상태·집계 단위는 별도로 설정합니다.
+
+### 주요 함수·클래스
+
+| 함수·클래스 | 구체적인 역할 | 관련 기술 |
+|---|---|---|
+| `create_profile` | 실제 PK/FK에서 프로필 초안 생성 | 메타데이터 추출 |
+| `apply_data_profile` | 조회 DB·상태 DB·설명·별칭·의미 설정 동시 선택 | 도메인 격리 |
+
+### 핵심 코드: create_profile
+
+복합키의 한 컬럼을 고유 엔터티 키로 오인하는 것을 피합니다.
+
+**동작:** 테이블 PK 목록이 한 개일 때만 엔터티 식별자 역할로 선언하고 FK도 대상 단일 PK를 확인합니다.
+
+**설계:** PK/FK 선언을 근거로 하는 보수적 역할 추출입니다. 행 단위와 엔터티 단위를 구분해 자동 추정 범위를 제한합니다.
+
+**예:** 두 컬럼 복합 PK는 각 컬럼을 개별 고유 키로 자동 등록하지 않습니다.
+
+<details>
+<summary>실제 코드와 원본 위치 보기</summary>
+
+원본: [scripts/create_data_profile.py](../scripts/create_data_profile.py#L24). 아래는 실제 코드의 24~39행 발췌이며 앞뒤는 생략했습니다.
+
+```python
+entities, roles, relationships = {}, [], []
+for table, columns in schemas.items():
+    pks = [c[1] for c in columns if c[5]]
+    # Composite keys remain table-grain metadata, not individually unique.
+    if len(pks) == 1:
+        entities[table] = {'semantic_terms':[table], 'identifier_fields':pks}
+        roles.append({'table':table, 'field':pks[0], 'entity':table})
+    for fk in foreign_keys[table]:
+        target, source_field, target_field = fk[2:5]
+        target_pks = [c[1] for c in schemas.get(target, []) if c[5]]
+        if target_field is None and len(target_pks) == 1:
+            target_field = target_pks[0]
+        if target_field and len(target_pks) == 1 and target_field in target_pks:
+            roles.append({'table':table,'field':source_field,'entity':target})
+        relationships.append({'name':f'{table}_{source_field}_to_{target}', 'table':table,
+            'source_field':source_field,'target_table':target,'target_field':target_field})
+```
+
+</details>
+
+### 다른 기능과 연결되는 순서
+
+원본 DB 준비 → 필요 시 분석 뷰 준비 → 스키마·별칭·업무 의미 설정 → 앱 시작 점검 → 읽기 전용 분석 순서입니다. 앱의 합성 데모와 사용자 연구 설문은 대체 가능한 데이터가 아닙니다.
+
+### 확인한 범위와 한계
+
+프로필 생성은 DB의 데이터 행을 복사하지 않지만 PK/FK가 없거나 잘못 선언되어 있으면 자동 역할 근거가 부족합니다. 원본과 가공 계층의 동일성·갱신 상태는 별도로 확인해야 합니다.
+
+관련 검증: [test_data_profile.py](../tests/test_data_profile.py).

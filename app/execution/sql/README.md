@@ -1,5 +1,9 @@
 # `app/execution/sql` · SQL AST 및 계약 검증
 
+> **한눈에 보기** · SQL을 구조적으로 읽고 분석 계획과 비교합니다. 문법이 맞는지뿐 아니라, 요청한 조건과 집계가 들어갔는지 검사합니다.
+
+**기본 흐름:** SQL 해석 → 테이블·조건·지표 확인 → 계획과 비교
+
 사용자가 확정한 분석 조건과 LLM이 만든 SQL이 일치하는지 구조적으로 검사하는 계층입니다. SQL이 실행된다는 사실만으로 요청한 집계 단위·필터·기간이 맞다고 볼 수 없으므로, 구문 분석과 계획 계약·스키마·지표 검증을 분리합니다. Baseline도 내부 분석 계획을 만들어 같은 검증 경로를 사용합니다.
 
 ## 주요 파일
@@ -162,6 +166,97 @@ CTE·하위 질의의 출력 참조는 해당 범위의 검사를 활용하며, 
 | `semantic_ratio_population`, `registered_metric_query` | 등록된 비율 모집단 또는 컴파일된 지표 SQL 계약 위반. |
 
 스키마 관련 후보를 고르는 단계는 [Schema Retrieval](../tools/README.md#schema-retrieval-질문과-관련된-스키마-우선-검색), 식별자 역할 충돌 검사는 [JOIN의 의미적 유효성](../semantics/README.md#join의-의미적-유효성)에서 자세히 설명합니다.
+
+## 핵심 개념과 동작
+
+AST는 **SQL을 테이블·조건·집계 같은 구성 요소로 나눈 구조**입니다. SQLGlot 라이브러리로 이 구조를 읽고 계획과 비교합니다.
+
+SQL 계약은 “계획한 조건이 SQL에도 들어 있어야 한다”는 규칙입니다. 데이터 변경 차단은 별도로 읽기 전용 연결과 authorizer를 사용합니다. authorizer는 DB가 요청받은 작업을 허용할지 결정하는 함수입니다.
+
+### 주요 함수·클래스
+
+| 함수·클래스 | 구체적인 역할 | 관련 기술 |
+|---|---|---|
+| `physical_tables_from_tree` | 스코프별 실제 테이블 추출 | SQLGlot Scope |
+| `validate_sql_contract` | 계획·지표·스키마 검증 조율 | 실행 계약 |
+| `create_read_only_connection` | 읽기 전용 연결과 authorizer 설치 | DB 권한 경계 |
+
+### 핵심 코드: physical_tables_from_tree
+
+다른 스코프의 CTE 이름 때문에 실제 테이블이 누락되지 않도록 합니다.
+
+**동작:** 트리를 복사해 식별자만 정규화하고 각 scope의 실제 Table 소스에서 원래 이름을 모읍니다.
+
+**설계:** AST 복사와 SQLGlot 스코프 탐색입니다. 원본 트리와 표시 이름을 보존하면서 SQLite의 이름 비교를 반영합니다.
+
+**예:** WITH recent AS (SELECT * FROM Orders) SELECT * FROM recent의 실제 테이블 집합은 {Orders}입니다.
+
+<details>
+<summary>실제 코드와 원본 위치 보기</summary>
+
+원본: [app/execution/sql/sql_ast.py](sql_ast.py#L88). 아래는 실제 코드의 88~102행 발췌이며 앞뒤는 생략했습니다.
+
+```python
+def physical_tables_from_tree(tree: exp.Query) -> set[str]:
+    """각 조회 범위에서 CTE와 물리 테이블 참조를 구분해 실제 테이블 이름을 반환한다.
+
+    SQLite 이름 비교를 위해 복사본만 정규화하며 반환 이름과 원본 AST는 보존한다.
+    """
+
+    scoped_tree = tree.copy()
+    original_names = {id(table): table.name for table in scoped_tree.find_all(exp.Table)}
+    normalize_identifiers(scoped_tree, dialect="sqlite")
+    return {
+        original_names[id(source)]
+        for scope in traverse_scope(scoped_tree)
+        for source in scope.sources.values()
+        if isinstance(source, exp.Table) and original_names.get(id(source))
+    }
+```
+
+</details>
+
+### 핵심 코드: create_read_only_connection
+
+쿼리 텍스트 검사 이후에도 DB 변경 권한을 제한합니다.
+
+**동작:** mode=ro URI로 연결하고 busy timeout과 작업별 authorizer를 설치합니다.
+
+**설계:** SQLite URI 권한과 authorizer의 다층 방어입니다. 문법 검사만으로 모든 DB 동작의 안전성을 보장하지 않기 때문입니다.
+
+**예:** 읽기 작업은 허용 목록으로 판단하며 쓰기·기타 작업 코드는 SQLITE_DENY입니다.
+
+<details>
+<summary>실제 코드와 원본 위치 보기</summary>
+
+원본: [app/execution/sql/sql_safety.py](sql_safety.py#L147). 아래는 실제 코드의 147~158행 발췌이며 앞뒤는 생략했습니다.
+
+```python
+def create_read_only_connection(path: Path) -> sqlite3.Connection:
+    """주어진 DB 경로를 절대 경로로 바꾸고 SQLite mode=ro 연결을 연다.
+
+    잠금 대기 시간과 authorizer를 설정해 반환하며 연결을 닫는 책임은 호출자에게 있다.
+    """
+
+    absolute = Path(path).expanduser().resolve()
+    uri = f"file:{absolute.as_posix()}?mode=ro"
+    conn = sqlite3.connect(uri, uri=True, check_same_thread=False)
+    conn.execute("PRAGMA busy_timeout=5000")
+    conn.set_authorizer(_readonly_authorizer)
+    return conn
+```
+
+</details>
+
+### 다른 기능과 연결되는 순서
+
+query_checker와 execute_query가 읽기 전용 → SQL 계약 → 기간 → 설정 의미를 공통으로 적용합니다. DB 조회 후 결과 계약은 results에서 검사합니다. CTE 구조와 조건식은 앞 절의 개념 설명을 참고하세요.
+
+### 확인한 범위와 한계
+
+AST와 계약 검증은 지원하는 표현 범위에 한정됩니다. authorizer는 읽기 작업을 제한하지만 큰 SELECT의 비용·민감 데이터 접근 정책·운영 사용자 권한까지 자동으로 해결하지 않습니다.
+
+관련 검증: [test_sql_ast.py](../../../tests/execution/test_sql_ast.py), [test_sql_tools.py](../../../tests/execution/test_sql_tools.py), [test_join_contract.py](../../../tests/execution/test_join_contract.py).
 
 ## 함께 읽기
 

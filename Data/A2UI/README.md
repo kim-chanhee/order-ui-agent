@@ -1,5 +1,9 @@
 # A2UI 사용자 연구 분석 노트북
 
+> **한눈에 보기** · 사용자 설문과 행동 로그를 통계적으로 분석하는 노트북입니다. 앱의 SQL 실행 검사와는 별도의 연구 분석입니다.
+
+**기본 흐름:** 연구 자료 준비 → 점수·집단 구성 → 통계 분석·가정 확인
+
 프롬프트 방식과 Agent2UI 방식의 사용자 경험 및 행동 로그를 분석하는 **Jupyter 노트북 7개**입니다. 주문 이벤트 DB를 조회하는 앱 코드와 별도의 연구 분석 자료입니다.
 
 공개본은 분석 셀과 설명을 제공하며, 셀 출력·실행 번호·원자료 링크·로컬 개인 경로 등 실행 기록을 제거했습니다. 원본 설문·참가자 목록·행동 로그와 기존 결과 파일은 포함하지 않습니다. **원자료 없이 전체 실행할 수 없으며, 공개된 결과의 독립 재현을 보장하지 않습니다.**
@@ -52,3 +56,78 @@ Jupyter 지원 편집기에서 이 커널을 선택하고, 프로젝트 루트 �
 ## 원자료와 공개 코드의 구분
 
 이 폴더는 분석 방법을 살펴보기 위한 소스 공개입니다. 개인별 응답·기록, 출력 셀, 이전 결과표, 설문 공유 링크를 포함하지 않습니다. 데이터 제공 없이 새 연구의 통계 결과가 생성되는 예제는 아니며, 주문 DB나 합성 앱 데모로 설문을 대체할 수 없습니다.
+
+## 핵심 개념과 동작
+
+먼저 설문 문항을 점수로 묶고, UI 방식과 숙련도에 따라 집단을 만듭니다. ANOVA(분산분석)로 집단 간 차이와 두 조건의 상호작용을 분석합니다.
+
+Cronbach α는 문항의 일관성, Pearson 상관은 변수 간 선형 관계를 살펴보는 지표입니다. 잔차의 분포와 집단별 분산도 확인하며, 필요한 경우 Box–Cox 변환 후 다시 분석합니다. 이 결과는 앱 실행 정확도 검사와 구분합니다.
+
+### 주요 함수·클래스
+
+| 함수·클래스 | 구체적인 역할 | 관련 기술 |
+|---|---|---|
+| `item_scores` | 문항 열을 찾아 수치화하고 결측 거절 | 척도 점수 전처리 |
+| `make_design` | UI와 사전 리터러시 기준 집단 구성 | 연구 설계 |
+| `fit_anova` | Sum coding과 Type III ANOVA | 선형 모형 |
+| `test_residual_assumptions` | 잔차 Shapiro·집단 Levene 검사 | 모형 진단 |
+| `survey_hash / module_hash` | 입력과 공통 분석 코드 식별 | 재현 근거 |
+
+### 핵심 코드: fit_anova
+
+UI와 숙련도의 주효과·상호작용을 같은 공통 모형으로 추정합니다.
+
+**동작:** 설계표 사본에 score를 추가하고 OLS를 적합한 뒤 Type III ANOVA 표를 반환합니다.
+
+**설계:** statsmodels와 Sum coding을 사용하는 선형 모형입니다. 여러 노트북이 서로 다른 모형식으로 계산되는 것을 줄입니다.
+
+**예:** 설계 DataFrame과 점수 배열을 받아 model·model_data·anova_table을 반환합니다.
+
+<details>
+<summary>실제 코드와 원본 위치 보기</summary>
+
+원본: [Data/A2UI/analysis_common.py](analysis_common.py). 아래는 로컬 원본 코드의 99~103행 발췌이며 앞뒤는 생략했습니다. 공개용 변환본에서는 행 번호가 달라질 수 있습니다.
+
+```python
+def fit_anova(design, values):
+    data = design.copy()
+    data['score'] = np.asarray(values, dtype=float)
+    model = smf.ols(MODEL_FORMULA, data=data).fit()
+    return model, data, anova_lm(model, typ=3)
+```
+
+</details>
+
+### 핵심 코드: test_residual_assumptions
+
+ANOVA 결과 해석에 필요한 잔차 분포·집단 분산 조건을 진단합니다.
+
+**동작:** 모형 잔차에 Shapiro를 적용하고 집단별 잔차에 median Levene를 계산합니다.
+
+**설계:** SciPy 통계 검정과 index 정렬입니다. 결과 유의확률과 별도로 모형 가정에 대한 근거를 보존합니다.
+
+**예:** 반환값은 Shapiro W·p, Levene F·p를 담은 딕셔너리입니다.
+
+<details>
+<summary>실제 코드와 원본 위치 보기</summary>
+
+원본: [Data/A2UI/analysis_common.py](analysis_common.py). 아래는 로컬 원본 코드의 113~118행 발췌이며 앞뒤는 생략했습니다. 공개용 변환본에서는 행 번호가 달라질 수 있습니다.
+
+```python
+def test_residual_assumptions(model, model_data):
+    residuals = pd.Series(model.resid.to_numpy(), index=model_data.index)
+    shapiro = stats.shapiro(residuals)
+    levene = stats.levene(*[residuals.loc[model_data['집단'].eq(g)].to_numpy() for g in GROUP_ORDER], center='median')
+    return {'Shapiro W': shapiro.statistic, '정규성 p': shapiro.pvalue,
+            'Levene F': levene.statistic, '등분산성 p': levene.pvalue}
+```
+
+</details>
+
+### 다른 기능과 연결되는 순서
+
+01 신뢰도 → 02 기술통계 → 03 상관 → 04 모형 → 04-1 가정 → 04-2 조건부 재분석 → 05 행동 로그·종합 순으로 구성됩니다. 공통 문항 매핑·집단 기준과 manifest가 후속 분석에 영향을 줍니다.
+
+### 확인한 범위와 한계
+
+참가자 수·집단 경계·문항 접두어는 원 연구를 전제합니다. 가정 검사 p값 하나로 인과효과나 모형 타당성을 보장하지 않으며 다중 비교·표본 설계에 대한 해석이 필요합니다. 이번 문서 작업은 비공개 설문·행동 로그를 실행하거나 통계 결과를 재생성하지 않았습니다.

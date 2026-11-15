@@ -1,5 +1,9 @@
 # HTTP API 구조와 Baseline·A2UI의 역할
 
+> **한눈에 보기** · 브라우저의 요청을 받아 담당 서비스에 연결하는 API 입구입니다. 요청 형식이 잘못되면 정해진 오류 응답을 보냅니다.
+
+**기본 흐름:** HTTP 요청 → 형식 검사 → 서비스 호출 → 응답
+
 `app/routes`는 브라우저의 HTTP 요청을 받아 내부 서비스를 호출하고, 결과를 응답하는 계층이다. 공통 API는 폴더 바로 아래에, A2UI 전용 API는 `a2ui/` 아래에 둔다.
 
 사용자 화면에서 부르는 A2UI 모드의 API 필드 값은 `agent2ui`이다. 코드와 요청 예시에서는 이 값을 사용한다.
@@ -85,6 +89,65 @@ CSV 내보내기의 `researcher_key`는 `ORDER_UI_RESEARCHER_KEY`와 비교한�
 | 폴더 | 역할 |
 |---|---|
 | [a2ui/](a2ui/README.md) | 계획 수정·확정 HTTP API |
+
+## 핵심 개념과 동작
+
+API는 **브라우저와 서버가 요청·응답을 주고받는 통로**입니다. 이 계층은 요청의 데이터 형식을 검사하고 서비스를 호출합니다.
+
+형식이 맞아도 업무 조건이 틀릴 수 있습니다. 화면 버전이 오래됐으면 409, 편집 값이 허용된 선택지 밖이면 422 오류로 응답합니다.
+
+### 주요 함수·클래스
+
+| 함수·클래스 | 구체적인 역할 | 관련 기술 |
+|---|---|---|
+| `chat` | 대화·실험 문맥과 실행 워커 연결 | FastAPI 라우트 |
+| `api_error_payload` | 오류 code/message/field_errors 형식 통일 | API 오류 계약 |
+| `ChatRequest` | 모드·질문·실행 식별자 검증 | Pydantic 요청 모델 |
+| `_should_record_execution_result` | 실제 조회와 재표시·대화를 구별해 저장 | 실행 증거 구분 |
+
+### 핵심 코드: _should_record_execution_result
+
+표시 변경이나 설명 답변이 새 분석 실행으로 중복 저장되지 않도록 합니다.
+
+**동작:** 실행 결과 종류와 메타데이터를 확인하여 저장 가능 여부를 반환합니다.
+
+**설계:** 경로와 실행 증거에 따른 저장 정책입니다. 대화 기록과 SQL 조회 이력을 분리해 후속 분석 범위를 안정적으로 유지합니다.
+
+**예:** 저장 결과를 표로 다시 보여준 응답은 신규 DB 실행 기록으로 취급하지 않습니다.
+
+<details>
+<summary>실제 코드와 원본 위치 보기</summary>
+
+원본: [app/routes/chat.py](chat.py#L127). 아래는 실제 코드의 127~140행 발췌이며 앞뒤는 생략했습니다.
+
+```python
+def _should_record_execution_result(execution_result: dict | None) -> bool:
+    """실제 조회 결과만 thread에 남긴다. 요약·검토·대화는 저장하지 않는다."""
+
+    kind = (execution_result or {}).get("kind")
+    return bool(execution_result) and kind not in {
+        "summary",
+        "explanation",
+        "result_transform",
+        "review_required",
+        "ad_hoc_review_required",
+        "clarification",
+        "unsupported_query",
+        "conversation",
+    }
+```
+
+</details>
+
+### 다른 기능과 연결되는 순서
+
+`POST /api/chat → chat_response_payload → routed_chat_response`입니다. run_id가 있고 활성 실험 직접 경로가 아니면 run_cancelable을 사용합니다. 서버 예외 핸들러는 HTTP·자료형 오류를 공통 JSON으로 변환합니다. API 목록은 위 표를 기준으로 하고 카드 저장 API `/api/review/update`는 [전용 문서](a2ui/README.md)에 설명합니다.
+
+### 확인한 범위와 한계
+
+모든 HTTP 라우트·실험 진행·취소 조합의 엔드투엔드 자동 검증은 현재 테스트에 없습니다. 관리자/참여자 모드 값과 researcher_key는 완전한 운영 인증·인가 체계가 아닙니다.
+
+관련 검증: [test_turn_router.py](../../tests/test_turn_router.py), [test_review_update.py](../../tests/a2ui/test_review_update.py).
 
 ## 함께 읽기
 

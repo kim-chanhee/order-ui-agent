@@ -1,5 +1,9 @@
 # `app/execution/agent` · SQL Agent 및 Tool Calling
 
+> **한눈에 보기** · LLM이 필요한 정보를 확인하고 SQL을 검사·실행하도록 순서를 관리합니다. 오류가 나면 도구의 답을 보고 다시 시도할 수 있습니다.
+
+**기본 흐름:** 모델 판단 → 도구 호출 → 결과 확인 → 다음 판단 또는 종료
+
 SQL Agent는 질문과 분석 계획을 받아 필요한 스키마를 확인하고, SQL을 검사·실행하는 Tool을 호출한 뒤 결과를 선택합니다. [fast_sql_agent.py](fast_sql_agent.py)는 LLM 호출과 반복 흐름을 담당하며, 실제 SQL 검증과 DB 조회는 [tools/](../tools/README.md)에 위임합니다.
 
 ## 주요 함수·클래스
@@ -18,9 +22,13 @@ SQL Agent는 질문과 분석 계획을 받아 필요한 스키마를 확인하�
 
 ## ReAct와 Tool Calling
 
-**ReAct(Reasoning and Acting)**는 모델이 현재 문맥으로 다음 행동을 결정하고, Tool의 반환 결과를 관찰한 뒤 다음 행동을 결정하는 반복 방식입니다. 이 구현에서는 `_run_react_tool_loop()`가 대화 이력에 모델 응답과 `ToolMessage`를 쌓으며 반복을 제어합니다. 내부 추론 과정을 별도 텍스트로 추출하거나 저장하는 구조는 아닙니다.
+**ReAct(Reasoning and Acting)**는 **판단 → 도구 사용 → 결과 확인**을 반복하는 방식입니다. 예를 들어 테이블 구조를 확인한 뒤 SQL을 만들고, 검사 오류가 나오면 이를 보고 다시 시도합니다.
 
-**Tool Calling**은 모델이 등록된 함수 이름과 인자를 구조화된 요청으로 반환하고, 애플리케이션이 해당 함수를 실행하는 방식입니다. `bind_tools()`로 Tool을 연결하고 응답의 `tool_calls`를 읽어 실행합니다. 모델은 다음 Tool을 선택하지만, 검사 이력과 읽기 전용 제한은 애플리케이션 코드가 강제합니다.
+`_run_react_tool_loop()`가 모델 응답과 도구의 답(`ToolMessage`)을 대화 이력에 추가하며 이 반복을 관리합니다. 모델 내부의 추론 과정을 별도로 추출하거나 저장하지는 않습니다.
+
+**Tool Calling**은 **모델이 함수를 요청하고 앱이 실행하는 방식**입니다. 모델이 함수 이름과 인자를 보내면 앱이 등록된 함수를 찾아 호출합니다.
+
+코드에서는 `bind_tools()`로 도구를 연결하고 `tool_calls`에 담긴 요청을 읽습니다. 검사 이력과 읽기 전용 제한은 앱이 적용합니다.
 
 | 모델에 연결하는 Tool | 용도 |
 |---|---|
@@ -117,6 +125,89 @@ SQL 검사 실패와 Tool 예외는 오류 메시지로 모델에 반환해 남�
 | `complexity`, `selected_candidate_index`, `candidate_scores` | 복잡도, 성공 조회 목록 기준 선택 인덱스와 후보 점수·사유. |
 | `result_truncated`, `returned_row_count` | 공유 상태에 기록된 마지막 DB 실행 결과의 제한 여부와 반환 행 수. 앞선 후보가 선택되면 선택 후보의 메타데이터와 다를 수 있다. |
 | `memory_eligible`, `execution_route` | 사례 재사용 가능 여부와 실행 경로 식별값. |
+
+## 핵심 개념과 동작
+
+아래 발췌는 앞의 ReAct·후보 선택·오류 복구 설명을 실제 제어 코드와 연결합니다. 모델이 Tool 요청을 생성해도 어떤 Tool을 실행하고 어떤 결과를 다음 문맥에 넣을지는 애플리케이션이 결정합니다.
+
+### 주요 함수·클래스
+
+| 함수·클래스 | 구체적인 역할 | 관련 기술 |
+|---|---|---|
+| `_run_react_tool_loop` | 등록 Tool 호출과 ToolMessage 관찰 반복 | ReAct / Tool Calling |
+| `_select_best_success` | 성공 조회의 계약·결과·실행 계획 점수 비교 | 휴리스틱 선택 |
+
+### 핵심 코드: _run_react_tool_loop
+
+모델이 요청한 외부 동작을 등록된 함수에만 연결합니다.
+
+**동작:** 응답의 이름으로 Tool을 찾고 인자로 호출한 뒤 오류를 문자열로 바꿉니다. 뒤의 코드가 ToolMessage를 이력에 추가합니다.
+
+**설계:** 도구 레지스트리와 관찰-행동 반복입니다. 알 수 없는 이름이나 Tool 실패도 다음 모델 판단의 관찰 결과로 남깁니다.
+
+**예:** query_checker({sql: ...})의 반환 문자열이 다음 모델 호출의 ToolMessage가 됩니다.
+
+<details>
+<summary>실제 코드와 원본 위치 보기</summary>
+
+원본: [app/execution/agent/fast_sql_agent.py](fast_sql_agent.py#L609). 아래는 실제 코드의 609~624행 발췌이며 앞뒤는 생략했습니다.
+
+```python
+for call in response.tool_calls:
+    name = call["name"]
+    args = call.get("args") or {}
+    tool_obj = tool_by_name.get(name)
+    if tool_obj is None:
+        result = f"Unknown tool: {name}"
+    else:
+        try:
+            result = str(tool_obj.invoke(args))
+        except Exception as exc:
+            result = f"Tool error: {exc}"
+    tool_log.append(f"{name}({args})")
+    if tool_error_log is not None and result.lower().startswith(
+        ("error:", "tool error:")
+    ):
+        sql_tail = normalize_sql(str(args.get("sql", "")))[-500:]
+```
+
+</details>
+
+### 핵심 코드: _select_best_success
+
+계획 유무에 따라 여러 성공 결과를 다르게 취급합니다.
+
+**동작:** 계획이 없으면 마지막 결과, 있으면 점수와 인덱스를 비교해 최대 후보를 선택합니다.
+
+**설계:** 동점에서 나중 결과를 택하는 결정 규칙입니다. 계획 없는 여러 조회는 서로 보완하는 답일 수 있어 동일 후보로 강제 경쟁시키지 않습니다.
+
+**예:** 후보 점수가 같고 계획이 있으면 더 큰 index를 선택합니다.
+
+<details>
+<summary>실제 코드와 원본 위치 보기</summary>
+
+원본: [app/execution/agent/fast_sql_agent.py](fast_sql_agent.py#L454). 아래는 실제 코드의 454~459행 발췌이며 앞뒤는 생략했습니다.
+
+```python
+selected = (
+    len(scored) - 1
+    if confirmed_plan is None
+    else max(range(len(scored)), key=lambda index: (scored[index]["score"], index))
+)
+return selected, scored
+```
+
+</details>
+
+### 다른 기능과 연결되는 순서
+
+초기 검색과 모델 호출 → Tool 결과 추가 → 필요시 대안 루프 → 성공 목록 점수화 → FastSqlResult 순서입니다. 실제 SQL 허용 여부는 tools·sql·semantics·results의 검사가 결정합니다.
+
+### 확인한 범위와 한계
+
+통합 테스트는 대체 LLM로 실제 Tool 경로를 확인합니다. 독립 후보가 항상 생성되는지·점수가 실제 의미 정확도를 높이는지는 이 테스트로 증명하지 않습니다. 시간 제한은 진행 중 호출의 강제 취소와 구분해야 합니다.
+
+관련 검증: [test_sql_tools.py](../../../tests/execution/test_sql_tools.py), [test_model_errors.py](../../../tests/test_model_errors.py).
 
 ## 함께 읽기
 

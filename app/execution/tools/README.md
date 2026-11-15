@@ -1,5 +1,9 @@
 # `app/execution/tools` · DB 스키마 탐색과 SQL 도구
 
+> **한눈에 보기** · 모델이 사용할 스키마 확인·SQL 검사·조회 도구를 제공합니다. 조회 직전에도 SQL을 다시 검사합니다.
+
+**기본 흐름:** 관련 테이블 찾기 → SQL 검사 → 재검사 후 조회
+
 모델이 선택한 작업을 실제 코드로 수행하는 Tool 계층입니다. Agent는 다음 행동을 결정하고, Tool은 스키마 탐색·SQL 검사·읽기 전용 조회와 실행 상태 관리를 담당합니다. [Agent의 ReAct·Tool Calling 흐름](../agent/README.md#react와-tool-calling)과 함께 읽을 수 있습니다.
 
 ## 주요 파일
@@ -168,6 +172,97 @@ SQL 검사·실행 오류는 `Error:` 문자열로 반환하고, Tool 호출 중
 - 모델에는 최대 20행의 미리보기를 보여줍니다. UI와 성공 목록에는 DB 반환 상한 내에서 보존한 전체 결과를 전달합니다. 모델 미리보기만으로 전체 건수를 계산하면 안 됩니다.
 - 결과가 비면 범주값과 연결 경로를 확인하고 한 번 더 시도하라는 안내를 모델에 반환합니다. 이는 자동 재실행이 아니라 모델에 제공하는 수정 지침입니다.
 - 결과 계약을 통과한 빈 조회도 성공 목록에 들어갈 수 있습니다. 실행 성공은 데이터가 존재한다거나 업무적 정답이라는 뜻은 아닙니다.
+
+## 핵심 개념과 동작
+
+Query Checker는 **SQL을 실행하기 전에 검사하는 도구**입니다. 검사 결과와 교정 내역은 SqlToolState에 저장합니다. 실행 도구는 이 기록을 확인하고 다시 검사한 뒤 조회합니다.
+
+BFS는 연결된 테이블을 가까운 곳부터 찾는 탐색법입니다. 연결 후보를 찾는 데 사용하며, 그 관계가 업무적으로 맞는지는 별도 검증이 필요합니다.
+
+### 주요 함수·클래스
+
+| 함수·클래스 | 구체적인 역할 | 관련 기술 |
+|---|---|---|
+| `make_query_checker_tool` | 검사 통과 키와 교정 SQL 등록 | 검사 후 실행 |
+| `make_execute_query_tool` | 동일 상태로 검사 이력·스키마·결과 계약 확인 | 실행 게이트 |
+| `_shortest_path` | 후보 테이블 그래프의 최소 간선 경로 | BFS |
+
+### 핵심 코드: execute_query
+
+검사하지 않은 SQL을 모델이 곧바로 실행하는 것을 막습니다.
+
+**동작:** 요청 SQL을 정규화해 검사 성공 키 또는 교정 매핑으로 찾고, 둘 다 아니면 오류를 반환합니다.
+
+**설계:** Tool 간 공유 상태를 이용한 실행 전제조건입니다. SQL 수정 이후에는 재검사가 필요하며 날짜 상한 교정은 원래 요청과 연결해 보존합니다.
+
+**예:** 검사 없는 SELECT는 query_checker must be called 오류이고 등록한 원본은 교정 SQL로 실행할 수 있습니다.
+
+<details>
+<summary>실제 코드와 원본 위치 보기</summary>
+
+원본: [app/execution/tools/sql_tools.py](sql_tools.py#L296). 아래는 실제 코드의 296~307행 발췌이며 앞뒤는 생략했습니다.
+
+```python
+requested_key = normalize_sql(sql)
+if requested_key in tool_state.checked_queries:
+    executable_sql = sql
+elif requested_key in tool_state.checked_rewrites:
+    executable_sql = tool_state.checked_rewrites[requested_key]
+else:
+    return "Error: query_checker must be called successfully before execute_query."
+if tool_state.require_schema_inspection:
+    referenced_tables = extract_referenced_tables(executable_sql)
+    missing_tables = referenced_tables - tool_state.inspected_tables
+    if missing_tables:
+        missing = ", ".join(sorted(missing_tables))
+```
+
+</details>
+
+### 핵심 코드: _shortest_path
+
+두 검색 후보를 연결하는 중간 테이블 후보를 찾습니다.
+
+**동작:** 같은 정점은 즉시 반환하고 큐에 경로를 넣어 방문하지 않은 이웃을 너비 우선 탐색합니다.
+
+**설계:** 무가중치 그래프 BFS입니다. 직접 이름 일치가 없는 후보 사이에 최소 개수의 연결 테이블을 보충합니다.
+
+**예:** a-b-c만 연결된 그래프에서 a→c는 [a,b,c], 연결이 없으면 []입니다.
+
+<details>
+<summary>실제 코드와 원본 위치 보기</summary>
+
+원본: [app/execution/tools/schema_tools.py](schema_tools.py#L923). 아래는 실제 코드의 923~937행 발췌이며 앞뒤는 생략했습니다.
+
+```python
+if source == target:
+    return [source]
+queue: list[list[str]] = [[source]]
+visited = {source}
+while queue:
+    path = queue.pop(0)
+    for neighbor in sorted(graph.get(path[-1], set())):
+        if neighbor in visited:
+            continue
+        candidate = [*path, neighbor]
+        if neighbor == target:
+            return candidate
+        visited.add(neighbor)
+        queue.append(candidate)
+return []
+```
+
+</details>
+
+### 다른 기능과 연결되는 순서
+
+Agent가 검사 Tool과 실행 Tool을 같은 상태로 생성합니다. 스키마 검색·상세 확인은 상태에 근거를 더하고, 실행 Tool이 공통 SQL 검증과 결과 계약을 통과한 원시 결과를 Agent로 돌려줍니다.
+
+### 확인한 범위와 한계
+
+정규화 키는 SQL의 완전한 의미 동등성을 판정하지 않습니다. 스키마 확인과 표본 기반 검색도 모든 데이터의 업무 의미를 증명하지 않으며, 실행 결과 상한과 모델 미리보기 상한은 다릅니다.
+
+관련 검증: [test_sql_tools.py](../../../tests/execution/test_sql_tools.py), [test_sql_ast.py](../../../tests/execution/test_sql_ast.py).
 
 ## 함께 읽기
 
